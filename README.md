@@ -130,7 +130,7 @@ Want to help improve this toolkit or add county-specific tips?
 
 ---
 
-🛠️ Built by [Oasis Engineering](https://www.oasisengineering.net) | 💬 Questions or ideas? Drop them [here](https://github.com/oasiseng/diy-wind-certification-guide/issues)  
+🛠️ Built by [Oasis Engineering](https://www.oasisengineering.com) | 💬 Questions or ideas? Drop them [here](https://github.com/oasiseng/diy-wind-certification-guide/)  
 🚀 Know someone who could use this? [Share the repo](https://github.com/oasiseng/diy-wind-certification-guide) and help them get permitted, not penalized.
 
 Empowered by Oasis Engineering. Use at your own risk. See `disclaimer.md` for full legal disclaimer.
