@@ -51,6 +51,7 @@ Exposure categories describe how open your property is to wind.
 Use the free Oasis Engineering wind pressure calculator:
 
 🔗 [ASCE 7-22 Wind Pressure Calculator](https://github.com/oasiseng/ASCE-7-22-Door-Window-Wind-Pressure-Calculator)
+🔗Or access via: [WindCalculations.com Free Wind Calculators](https://windcalculations.com/free-wind-calculators)
 
 1. Enter your wind speed from Step 1  
 2. Enter your door/window dimensions  
