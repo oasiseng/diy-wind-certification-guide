@@ -40,7 +40,7 @@ This is the value you’ll enter into the [Oasis Wind Pressure Calculator](https
 
 - 🌐 [FloridaWindCalcs.com](https://floridawindcalcs.com)  
 - 📊 [Free Wind Load Calculator (Oasis Engineering)](https://oasisengineering.com/free-wind-load-calculator/)  
-- 💨 [WindCalculations.com/free-wind-calcs](https://windcalculations.com/free-wind-calcs)
+- 💨 [WindCalculations.com/free-wind-calcs](https://windcalculations.com/free-wind-calculators)
 
 Use these sites for additional resources, permit-ready packages, and expert support.
 ---
@@ -77,7 +77,7 @@ Title: *High-Velocity Hurricane Zones — Wind Loads*
 ---
 
 For official calculations in HVHZ, we recommend using:
-- [WindCalculations.com](https://windcalculations.com/free-wind-calcs)
+- [WindCalculations.com](https://windcalculations.com/free-wind-calculators)
 - [FloridaWindCalcs.com](https://floridawindcalcs.com)
 - [OasisEngineering.com/free-wind-load-calculator](https://oasisengineering.com/free-wind-load-calculator/)
 
