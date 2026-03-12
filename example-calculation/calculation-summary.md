@@ -76,4 +76,4 @@ If the product is only rated for **–70 psf**, it will not meet the minimum win
 ---
 
 🔗 View calculator: [Free Wind Pressure Calculator](https://oasisengineering.com/free-wind-load-calculator/)  
-🧪 Want a sealed engineer letter? Visit [WindCalculations.com](https://windcalculations.com/free-wind-calcs)
+🧪 Want a sealed engineer letter? Visit [WindCalculations.com](https://windcalculations.com/free-wind-calculators)
