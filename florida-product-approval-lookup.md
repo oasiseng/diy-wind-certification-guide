@@ -40,6 +40,6 @@ You’ll compare the **tested pressures** from this approval document against th
 
 - 🌐 [FloridaWindCalcs.com](https://floridawindcalcs.com)  
 - 🧮 [OasisEngineering.com/free-wind-load-calculator](https://oasisengineering.com/free-wind-load-calculator/)  
-- 📑 [WindCalculations.com/free-wind-calcs](https://windcalculations.com/free-wind-calcs)
+- 📑 [WindCalculations.com/free-wind-calcs](https://windcalculations.com/free-wind-calculators)
 
 These platforms can assist if your city requires a sealed engineering letter instead of a DIY comparison.
