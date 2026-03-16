@@ -277,7 +277,7 @@ You: "I can help! Let me gather some information:
 
 1. Is the door a single-story replacement (first floor)?
 2. What's your wind speed? You can check the HVHZ map for Miami
-   (typically 140 mph). Here's the ASCE tool: [hazards.atcouncil.org]
+   (typically 140 mph). Here's the ASCE tool: (https://www.ascehazardtool.org)
 3. The terrain is urban (Exposure B). Does that sound right?
 4. The door is 3 ft wide × 6.83 ft tall (about 20 sq ft).
 
@@ -379,7 +379,7 @@ consult a wind engineer."
 - **Florida Administrative Code 62-6.002**: HVHZ regulations
 
 ### Tools & Databases
-- **ASCE Hazard Tool**: https://hazards.atcouncil.org/
+- **ASCE Hazard Tool**: https://www.ascehazardtool.org
 - **Miami-Dade Product Approval Directory (PAD)**: https://permit.miamidade.gov/
 - **Broward County Building & Safety**: https://www.broward.org/
 - **Florida Division of Emergency Management (HVHZ maps)**: https://www.floridadisaster.org/
