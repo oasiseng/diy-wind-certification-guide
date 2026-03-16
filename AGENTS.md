@@ -111,7 +111,7 @@ Guide users through this workflow in conversation:
 **What to ask:** "What is the ultimate wind speed for your location?"
 
 **How to find it:**
-- **ASCE 7-22 Figure 26.5-1** (standard map): https://www.asce.org/
+- **ASCE 7-22 Figure 26.5-1** (standard map): [https://www.asce.org/](https://www.ascehazardtool.org)
 - **HVHZ map** (for HVHZ areas): Florida Division of Emergency Management
 - Typical HVHZ speeds: 120–150 mph
 - Typical non-HVHZ speeds: 100–120 mph
