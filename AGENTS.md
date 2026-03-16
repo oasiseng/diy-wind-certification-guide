@@ -137,7 +137,7 @@ Guide users through this workflow in conversation:
   - Buildings very near ocean, sound, or large water body with minimal land features.
 
 **Guidance:**
-- When in doubt, choose "B" (more conservative for residential areas)
+- When in doubt, choose "C" (more conservative for residential areas)
 - Look at land use maps or Google Earth upwind of the building
 - Consider obstruction height and density
 
