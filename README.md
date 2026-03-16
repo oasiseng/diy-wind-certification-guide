@@ -1,136 +1,191 @@
-# 🏠 DIY Wind Certification Guide Repository
+# Wind Certification Platform
 
-Welcome to the DIY Wind Certification Guide repository! This open-source toolkit empowers Florida homeowners and contractors to prepare basic wind load verification packages for like-for-like **door or window replacements**.
+**The #1 open-source wind load certification tool for Florida.**
 
-It’s designed to help you navigate Florida’s permitting process for **low-risk retrofit projects** using **free tools** and official product approvals — no engineer stamp required (in some cases).
+Free ASCE 7-22 wind pressure calculator, product comparison, and certification letter generator — built for homeowners, contractors, and architects.
 
-> ⚠️ **Disclaimer:** Always check with your local building department to confirm they accept homeowner-generated submissions. Some areas (e.g., **Miami-Dade**, **Broward**) may require a licensed engineer’s stamp for High-Velocity Hurricane Zones (HVHZ).  
-> This toolkit is for **educational purposes only**.
-
----
-
-## 📚 Table of Contents
-
-- [📋 What's in This Repository](#-whats-in-this-repository)
-- [🚀 Quick-Start Guide](#-quick-start-guide)
-- [🧠 Why This Toolkit?](#-why-this-toolkit)
-- [⚠️ Before You Start](#️-before-you-start)
-- [📬 How to Contribute](#-how-to-contribute)
+[Live Calculator](https://windcalculations.com) | [API Docs](./openapi.yaml) | [LLM Integration](./AGENTS.md) | [Oasis Engineering](https://oasisengineering.com)
 
 ---
 
-## 📋 What's in This Repository?
+## What This Does
 
-This toolkit includes step-by-step guides, templates, and examples to make wind load verification **clear and actionable**:
+This platform helps anyone in Florida verify that their doors, windows, and cladding meet wind load requirements per **ASCE 7-22** and the **Florida Building Code 2023**. It replaces expensive engineering consultations for straightforward like-for-like replacements.
 
-- `DIY_Wind_Certification_Guide_for_Florida_Homeowners.md`  
-  Beginner-friendly step-by-step guide.
+**The workflow:**
+1. Select your Florida county (auto-detects HVHZ status)
+2. Enter your wind speed and exposure category
+3. Input building dimensions and product area
+4. Get calculated wind pressures (Zone 4 and Zone 5)
+5. Compare against your product's rated pressures
+6. Generate a certification letter (PDF) for your permit submission
 
-- `disclaimer.md`  
-  Legal disclaimer emphasizing that this is not professional engineering advice.
+## Who It's For
 
-- `contractor-version.md`  
-  Contractor-specific version for handling multiple installations.
+- **Homeowners** replacing doors or windows who need a wind load verification for their permit
+- **Contractors** who need quick field calculations without calling an engineer every time
+- **Architects** who want a fast design-check tool for C&C wind loads
+- **AI Assistants** (ChatGPT, Claude, Gemini) that guide users through wind certification — see [AGENTS.md](./AGENTS.md)
 
-- `example-calculation/`  
-  Sample calculator output with screenshot and interpretation notes.
+## Project Structure
 
-- `forms-and-templates/`
-  - `homeowner-certification-letter.md`  
-    Template letter for submitting to your building department.
+```
+wind-certification-platform/
+├── packages/
+│   ├── asce7-calculator/     # Pure TypeScript ASCE 7-22 engine (zero deps)
+│   └── schemas/              # JSON schemas for LLM integration
+├── apps/
+│   └── web/                  # Next.js interactive web application
+│       ├── src/app/          # Pages and API routes
+│       ├── src/components/   # Calculator wizard UI (6 steps)
+│       ├── src/lib/          # PDF generator, county helpers
+│       └── src/data/         # Florida county database (67 counties)
+├── docs/                     # Original guides (migrated)
+├── AGENTS.md                 # AI assistant instructions
+├── llm-reference.json        # Structured LLM knowledge base
+├── openapi.yaml              # OpenAPI 3.0 API specification
+└── diy-wind-certification-guide-main/  # Original documentation
+```
 
-- `municipality-notes/`  
-  County-specific notes for **Broward**, **Miami-Dade**, and **Hillsborough**.
+## Quick Start
 
-- `links/`
-  - `asce7-wind-speed-map.md`  
-    Instructions for using the [ASCE 7 Hazard Tool](https://asce7hazardtool.online/) to get official wind speeds.
-  - `florida-product-approval-lookup.md`  
-    Guide for finding your product's official ratings.
+```bash
+# Install dependencies
+pnpm install
 
----
+# Run the calculator tests
+pnpm --filter @oasis/asce7-calculator test
 
-## 🚀 Quick-Start Guide
+# Start the web app
+pnpm dev
+```
 
-Follow these steps to generate your DIY wind load comparison:
+## Calculator Engine (`@oasis/asce7-calculator`)
 
-1. **Read the Guide**  
-   👉 [Start Here](DIY_Wind_Certification_Guide_for_Florida_Homeowners.md)
+Standalone TypeScript library with zero dependencies. Use it anywhere:
 
-2. **Gather Your Info**  
-   - Your property **address**  
-   - Door/window **size** (in inches or feet)  
-   - **Florida Product Approval Number** (e.g., FL12345-R2)  
-   - The product’s cut sheet or approval document
+```typescript
+import { calculate, compareProduct } from '@oasis/asce7-calculator';
 
-3. **Find Your Wind Speed**  
-   🔗 [ASCE 7 Hazard Tool](https://asce7hazardtool.online/)  
-   - Enter your address  
-   - Use **Risk Category II**  
-   - Get the **Ultimate Wind Speed (Vult)** for your location
+const result = calculate({
+  county: 'Broward',
+  isHVHZ: true,
+  ultimateWindSpeed: 170,
+  exposureCategory: 'C',
+  meanRoofHeight: 12,
+  buildingLength: 50,
+  buildingWidth: 50,
+  effectiveWindArea: 20,
+});
 
-4. **Determine Exposure Category**  
-   Use the terrain around your home:
-   - **B** = Urban/suburban neighborhoods (buildings, trees, houses)  
-   - **C** = Open terrain, flat fields, or scattered buildings  
-   - **D** = Flat + near large bodies of water (coastal or beachfront)
+console.log(result.criticalPressure);
+// { positive: 54.2, negative: -81.0 }
 
-5. **Calculate Required Pressures**  
-   Use the official Oasis Engineering tool:  
-   👉 [ASCE 7-22 Wind Pressure Calculator](https://github.com/oasiseng/ASCE-7-22-Door-Window-Wind-Pressure-Calculator)
-   Or access via: [WindCalculations.com Free Wind Calculators](https://windcalculations.com/free-wind-calculators)
+// Compare against a product
+const comparison = compareProduct(result, {
+  name: 'MasterCraft Impact Door',
+  ratedPositive: 55,
+  ratedNegative: 90,
+});
 
-7. **Compare to Product Ratings**  
-   Look at your product’s approval or NOA.  
-   - Does the tested pressure **meet or exceed** the calculated pressure?
+console.log(comparison.overallPass); // true
+```
 
-8. **Prepare Your Submission Package**  
-   Include:
-   - Calculator screenshot or printout  
-   - Product approval PDF  
-   - Optional: [Cover Letter](forms-and-templates/homeowner-certification-letter.md)
+### Key Formulas (ASCE 7-22 Chapter 30)
 
-9. **Submit to Your City**  
-   Contact your building department to confirm if this is accepted as part of your permit submission.
+| Formula | Description |
+|---------|-------------|
+| `qh = 0.00256 × Kz × Kzt × Kd × Ke × V²` | Velocity pressure at roof height |
+| `p = qh × [(GCp) ± (GCpi)]` | Design wind pressure |
+| `F = p × A` | Wind load (force) on component |
 
----
+### HVHZ Overrides (FBC 2023 Section 1620)
 
-## 🧠 Why This Toolkit?
+| County | Risk Cat II Min Speed | Min Exposure |
+|--------|----------------------|-------------|
+| Miami-Dade | 175 mph | C |
+| Broward | 170 mph | C |
 
-✅ **Empowers You**  
-Gives homeowners and contractors tools to understand and document wind compliance
+## API
 
-⏱️ **Saves Time**  
-Prevents delays in permitting for straightforward retrofit jobs
+### POST `/api/calculate`
 
-💸 **Reduces Costs**  
-Avoids unnecessary engineering fees if your city accepts homeowner documentation
+```bash
+curl -X POST http://localhost:3000/api/calculate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "county": "Broward",
+    "isHVHZ": true,
+    "ultimateWindSpeed": 170,
+    "exposureCategory": "C",
+    "meanRoofHeight": 18,
+    "buildingLength": 50,
+    "buildingWidth": 40,
+    "effectiveWindArea": 20
+  }'
+```
 
-🆓 **Open Source**  
-Free to use, share, and improve!
+### GET `/api/llm-context`
 
----
+Returns the complete structured knowledge base for LLM integration. Any AI assistant can call this endpoint to get everything needed to guide a user through wind certification.
 
-## ⚠️ Before You Start
+## LLM Integration
 
-- **Check Local Rules:** Not all municipalities allow DIY packages. Call first.  
-- **Low-Risk Only:** Use only for **like-for-like replacements** (not new openings or structural changes).  
-- **Accuracy Matters:** Errors can cause permit rejection or safety risks. Double-check your work.
+This project is designed to be referenced by AI assistants. Three resources:
 
----
+1. **[AGENTS.md](./AGENTS.md)** — Instructions for AI assistants. Feed this to your LLM for comprehensive wind certification guidance.
+2. **[llm-reference.json](./llm-reference.json)** — Structured knowledge base with glossary, workflow, examples, and conversation templates.
+3. **[openapi.yaml](./openapi.yaml)** — OpenAPI spec for tool-calling integration (ChatGPT Actions, Claude MCP, etc.)
 
-## 📬 How to Contribute
+### Example AI Prompt
 
-Want to help improve this toolkit or add county-specific tips?
+> "I'm replacing a sliding door in Fort Lauderdale. Using the Oasis Wind Certification tool, help me figure out if my product meets the wind load requirements. The door is 6ft × 8ft, my house is 50×40 ft with a 15ft roof, and I'm in an open area."
 
-- 🛠️ Fork the repository  
-- ✍️ Make edits or additions  
-- ✅ Submit a pull request  
-- 💬 Or open an issue with feedback
+## Florida County Data
 
----
+All 67 Florida counties are included with:
+- HVHZ status and minimum wind speeds
+- Whether DIY packages are accepted
+- Whether engineer stamps are required
+- Building department contacts (for focus counties)
+- Geographic region classification
 
-🛠️ Built by [Oasis Engineering](https://www.oasisengineering.com) | 💬 Questions or ideas? Drop them [here](https://github.com/oasiseng/diy-wind-certification-guide/)  
-🚀 Know someone who could use this? [Share the repo](https://github.com/oasiseng/diy-wind-certification-guide) and help them get permitted, not penalized.
+## Important Disclaimers
 
-Empowered by Oasis Engineering. Use at your own risk. See `disclaimer.md` for full legal disclaimer.
+- This tool is for **educational purposes only** and does not constitute professional engineering
+- Results are **not sealed engineering documents**
+- **HVHZ locations** (Miami-Dade, Broward) typically require sealed engineering packages
+- Always confirm requirements with your local building department before submission
+- For professional sealed letters, visit [windcalculations.com](https://windcalculations.com)
+
+## Tech Stack
+
+- **Calculator:** TypeScript (zero dependencies, publishable to npm)
+- **Web App:** Next.js 14, React 18, Tailwind CSS
+- **PDF:** jsPDF (client-side generation)
+- **Monorepo:** pnpm workspaces + Turborepo
+- **Testing:** Vitest (39 tests passing)
+
+## Contributing
+
+We welcome contributions! See [contributing.md](./diy-wind-certification-guide-main/contributing.md) for guidelines.
+
+Ideas for contributions:
+- County-specific notes and building department contacts
+- Product approval database entries
+- Calculation examples with screenshots
+- Spanish / multilingual translations
+- Additional building code versions
+- Multi-state expansion (California, Texas)
+
+## Professional Services
+
+Need a **sealed engineering letter**? The DIY tool covers many cases, but some jurisdictions and scenarios require professional engineering:
+
+- [WindCalculations.com](https://windcalculations.com) — Sealed wind load packages
+- [OasisEngineering.com](https://oasisengineering.com) — Full engineering services
+- Contact: info@oasisengineering.com | (813) 694-8989
+
+## License
+
+MIT — Free to use, modify, and distribute. Built by [Oasis Engineering](https://oasisengineering.com).
