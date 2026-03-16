@@ -1,0 +1,889 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "asce7": "7-22",
+    "fbc": "2023",
+    "updated": "2025-03-15",
+    "platform": "ASCE 7-22 Wind Certification Calculator",
+    "jurisdiction": "Florida (statewide, with HVHZ special rules)",
+    "scope": "Components & Cladding (C&C) per ASCE 7-22 Chapter 30"
+  },
+
+  "api": {
+    "baseUrl": "http://localhost:3000",
+    "calculate": {
+      "method": "POST",
+      "path": "/api/calculate",
+      "description": "Calculate wind pressures and loads on building components using ASCE 7-22 Chapter 30. Returns pressure values for Zone 4 (interior) and Zone 5 (corners/edges), critical design pressures, and intermediate calculation values for verification.",
+      "contentType": "application/json",
+      "successCode": 200,
+      "errorCodes": {
+        "400": "Invalid input (missing required fields, out of range values)",
+        "422": "Validation failed (e.g., non-existent county, invalid exposure category)",
+        "500": "Server error during calculation"
+      }
+    },
+    "llmContext": {
+      "method": "GET",
+      "path": "/api/llm-context",
+      "description": "Retrieve this complete reference document (llm-reference.json) for LLM integration. Allows AI assistants to load full platform knowledge.",
+      "contentType": "application/json",
+      "successCode": 200
+    }
+  },
+
+  "schemas": {
+    "calculatorInput": {
+      "title": "ASCE 7-22 Wind Pressure Calculator Input",
+      "type": "object",
+      "required": [
+        "county",
+        "isHVHZ",
+        "ultimateWindSpeed",
+        "exposureCategory",
+        "meanRoofHeight",
+        "buildingLength",
+        "buildingWidth",
+        "effectiveWindArea"
+      ],
+      "properties": {
+        "county": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50,
+          "description": "Florida county name (e.g., 'Broward', 'Miami-Dade', 'Hillsborough'). Used to determine HVHZ status and applicable wind speed maps per ASCE 7-22 Figure 26.5-1 and Florida Administrative Code 62-6.002.",
+          "examples": ["Broward", "Miami-Dade", "Hillsborough", "Orange", "Palm Beach"]
+        },
+        "isHVHZ": {
+          "type": "boolean",
+          "description": "High-Velocity Hurricane Zone status. HVHZ areas require higher wind speeds and NOA (Notice of Acceptance) product approvals per FBC 2023. Miami-Dade and Broward are entirely HVHZ. Check county HVHZ boundary maps.",
+          "examples": [true, false]
+        },
+        "ultimateWindSpeed": {
+          "type": "number",
+          "minimum": 85,
+          "maximum": 300,
+          "description": "Ultimate wind speed (Vult) in miles per hour. 700-year return period wind speed from ASCE 7-22 Figure 26.5-1 (standard areas) or HVHZ map (high-velocity areas). Typical ranges: HVHZ 140–150 mph, non-HVHZ 100–120 mph. Use ASCE Hazard Tool (hazards.atcouncil.org) to look up.",
+          "examples": [140, 120, 115, 130]
+        },
+        "exposureCategory": {
+          "type": "string",
+          "enum": ["B", "C", "D"],
+          "description": "Exposure category per ASCE 7-22 Section 26.7. Describes surrounding terrain and affects velocity pressure at height. B: urban/suburban/wooded (most common). C: open terrain with scattered obstructions. D: flat open water/coastal.",
+          "examples": ["B", "C", "D"]
+        },
+        "meanRoofHeight": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 200,
+          "description": "Mean roof height in feet. Height to eave (for sloped roofs) or average ridge height. Measured from lowest grade point. Used to determine velocity pressure (qh) at height per ASCE 7-22 Section 26.10.",
+          "examples": [20, 30, 45, 25]
+        },
+        "buildingLength": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 1000,
+          "description": "Building length in feet. Longest horizontal dimension (parallel to dominant wind direction). Used to calculate zone end width 'a' per ASCE 7-22 Figure 30.3-1.",
+          "examples": [60, 100, 150, 80]
+        },
+        "buildingWidth": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 1000,
+          "description": "Building width in feet. Shortest horizontal dimension (perpendicular to wind). Also used for zone end width calculation.",
+          "examples": [40, 60, 80, 50]
+        },
+        "effectiveWindArea": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Effective wind area in square feet. For doors/windows: width × height. For panels: panel area. For roof areas: tributary area. Minimum 1 sq ft (small components), maximum 1000 sq ft (large panels). Determines component wind loads.",
+          "examples": [6, 24, 100, 36]
+        },
+        "topographicFactor": {
+          "type": "number",
+          "default": 1.0,
+          "minimum": 0.8,
+          "maximum": 1.2,
+          "description": "Topographic factor (Kzt) per ASCE 7-22 Section 26.8. Accounts for wind speed-up over hills and ridges. Default 1.0 (flat terrain). Use Kzt > 1.0 only if building is on hilltop/ridge summit with documented topographic analysis. Range: 1.0 (no effect) to 1.2 (maximum wind speed-up).",
+          "examples": [1.0, 1.05, 1.1]
+        },
+        "riskCategory": {
+          "type": "integer",
+          "enum": [1, 2, 3, 4],
+          "default": 2,
+          "description": "Risk category per ASCE 7-22 Table 1.5-1. Determines importance factor (I). 1: low hazard (agriculture, temporary). 2: typical residential/commercial (default). 3: substantial hazard (schools, hospitals). 4: critical (fire stations, power plants).",
+          "examples": [1, 2, 3, 4]
+        },
+        "address": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 200,
+          "description": "Project street address or location description for record-keeping. Not used in calculations but helpful for documentation.",
+          "examples": ["123 Main St, Fort Lauderdale, FL 33301", "456 Oak Ave, Tampa, FL 33602"]
+        }
+      }
+    },
+
+    "calculatorOutput": {
+      "title": "ASCE 7-22 Wind Pressure Calculator Output",
+      "type": "object",
+      "required": [
+        "input",
+        "intermediate",
+        "zone4",
+        "zone5",
+        "criticalPressure",
+        "asce7Version",
+        "floridaBuildingCodeVersion",
+        "calculatedAt",
+        "warnings"
+      ],
+      "properties": {
+        "input": {
+          "description": "Snapshot of input parameters for audit trail and verification.",
+          "type": "object"
+        },
+        "intermediate": {
+          "description": "Intermediate calculation values showing key steps per ASCE 7-22 formulas.",
+          "type": "object",
+          "properties": {
+            "zoneEndWidth": {
+              "type": "number",
+              "description": "Zone end width 'a' in feet. Per ASCE 7-22 Section 30.3: a = min(0.1 × least horizontal dimension, 0.4 × mean roof height) but not less than 4% of least dimension or 3 feet. Defines width of corner/edge zone (Zone 5)."
+            },
+            "velocityPressure": {
+              "type": "number",
+              "description": "Velocity pressure (qh) in psf at mean roof height. Calculated as qh = 0.613 × Kz × Kzt × Kd × V² × I per ASCE 7-22 Section 26.10. Base pressure for all component calculations."
+            },
+            "exposureCoefficient": {
+              "type": "number",
+              "description": "Exposure coefficient (Kz) at mean roof height. Depends on exposure category (B/C/D) per ASCE 7-22 Table 26.8-1. Accounts for wind speed variation with height and terrain roughness."
+            },
+            "directionalityFactor": {
+              "type": "number",
+              "description": "Wind directionality factor (Kd). Per ASCE 7-22 Table 26.6-1, typically 0.85 for buildings. Accounts for probability of maximum wind from any direction."
+            },
+            "groundElevationFactor": {
+              "type": "number",
+              "description": "Ground elevation factor (Ke) per ASCE 7-22 Section 26.9. Accounts for elevation above sea level. Value 1.0 for elevations below 2000 feet; increases slightly at higher elevations."
+            }
+          }
+        },
+        "zone4": {
+          "description": "Wind pressures and loads for Zone 4 (interior zone). Interior/middle facade areas away from edges and corners. Typically lower suction than Zone 5.",
+          "type": "object",
+          "properties": {
+            "positive": {
+              "type": "number",
+              "description": "Zone 4 positive (inward) pressure in psf. Windward-side inward push. Design value for component."
+            },
+            "negative": {
+              "type": "number",
+              "description": "Zone 4 negative (outward suction) pressure in psf. Leeward-side/roof suction. Outward pull on component."
+            },
+            "loads": {
+              "type": "object",
+              "description": "Actual wind forces in pounds-force (lbf) for the effective wind area.",
+              "properties": {
+                "positive": { "type": "number", "description": "Zone 4 positive load in lbf = positive pressure × effective area" },
+                "negative": { "type": "number", "description": "Zone 4 negative load in lbf = negative pressure × effective area" }
+              }
+            }
+          }
+        },
+        "zone5": {
+          "description": "Wind pressures and loads for Zone 5 (corner/edge zone). Areas within distance 'a' from building edges and corners. Typically higher suction than Zone 4 due to flow separation.",
+          "type": "object",
+          "properties": {
+            "positive": {
+              "type": "number",
+              "description": "Zone 5 positive (inward) pressure in psf at edges/corners."
+            },
+            "negative": {
+              "type": "number",
+              "description": "Zone 5 negative (outward suction) pressure in psf. Usually the critical constraint for suction."
+            },
+            "loads": {
+              "type": "object",
+              "description": "Actual wind forces in lbf for Zone 5 components.",
+              "properties": {
+                "positive": { "type": "number", "description": "Zone 5 positive load in lbf" },
+                "negative": { "type": "number", "description": "Zone 5 negative load in lbf" }
+              }
+            }
+          }
+        },
+        "criticalPressure": {
+          "description": "Critical design pressures (maximum across all zones). Products must meet or exceed these values.",
+          "type": "object",
+          "properties": {
+            "positive": {
+              "type": "number",
+              "description": "Maximum positive (inward) pressure in psf across Zones 4 and 5. Product positive rating must be ≥ this value."
+            },
+            "negative": {
+              "type": "number",
+              "description": "Maximum negative (suction/outward) pressure magnitude in psf. Product negative rating must be ≥ this value."
+            }
+          }
+        },
+        "asce7Version": {
+          "type": "string",
+          "description": "ASCE 7 standard version (e.g., '7-22', '7-16'). Currently using ASCE/SEI 7-22.",
+          "examples": ["7-22"]
+        },
+        "floridaBuildingCodeVersion": {
+          "type": "string",
+          "description": "Florida Building Code version applied (e.g., '2023 FBC' based on ASCE 7-22).",
+          "examples": ["2023 FBC"]
+        },
+        "calculatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of calculation (e.g., '2024-03-15T14:30:00Z'). Useful for audit trail."
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of warning messages requiring attention (e.g., HVHZ approval, high wind speed verification, topographic analysis needed).",
+          "examples": [
+            "Building is in HVHZ - ensure products have NOA (Notice of Acceptance) approval",
+            "High wind speed (140 mph) - verify from current ASCE 7-22 Figure 26.5-1 and HVHZ map",
+            "Risk category set to 3 - verify with local building department",
+            "Topographic factor > 1.0 - ensure terrain analysis documentation is available"
+          ]
+        }
+      }
+    }
+  },
+
+  "glossary": {
+    "ASCE 7-22": "Minimum Design Loads and Associated Criteria for Buildings and Other Structures. Current standard for wind pressure calculations in the U.S.",
+    "Vult": "Ultimate wind speed in mph. 700-year return period wind speed from ASCE 7-22 Figure 26.5-1 (standard areas) or HVHZ map.",
+    "Kz": "Velocity pressure exposure coefficient. Depends on exposure category (B/C/D) per ASCE 7-22 Table 26.8-1. Accounts for wind speed variation with height.",
+    "Kzt": "Topographic factor per ASCE 7-22 Section 26.8. Accounts for wind speed-up over hills and ridges. Default 1.0 (flat terrain).",
+    "Kd": "Wind directionality factor per ASCE 7-22 Table 26.6-1. Typically 0.85 for buildings.",
+    "Ke": "Ground elevation factor per ASCE 7-22 Section 26.9. Accounts for elevation above sea level.",
+    "qh": "Velocity pressure at mean roof height in psf. Base pressure for all component calculations. Calculated as qh = 0.613 × Kz × Kzt × Kd × V² × I.",
+    "GCp": "External pressure coefficient (not directly output, but conceptual for roof/wall zones).",
+    "GCpi": "Internal pressure coefficient. Not explicitly calculated here; assumes openings controlled per code.",
+    "psf": "Pounds per square foot. Unit of pressure in wind calculations.",
+    "lbf": "Pounds-force. Unit of load (total force = pressure × area).",
+    "Zone 4": "Interior zone. Middle/interior portions of building facade away from edges and corners. Lower pressures than Zone 5.",
+    "Zone 5": "Corner/edge zone. Areas within distance 'a' (zone end width) from edges and corners. Higher suction than Zone 4. Critical design constraint.",
+    "Zone end width (a)": "Distance from building edge/corner defining Zone 5 boundary. Per ASCE 7-22: a = min(0.1 × least horizontal dimension, 0.4 × mean roof height), not less than 4% of least dimension or 3 feet.",
+    "Positive pressure": "Inward push on building surface. Typical on windward side of building. Tends to push components inward.",
+    "Negative pressure": "Outward suction on building surface. Typical on leeward side and roof edges. Tends to pull components outward. Often the critical constraint.",
+    "HVHZ": "High-Velocity Hurricane Zone. Florida coastal areas with higher wind speeds and stricter building requirements per FBC 2023. Miami-Dade and Broward are entirely HVHZ.",
+    "NOA": "Notice of Acceptance. Florida product approval certification for HVHZ areas. Required for all windows, doors, and cladding in HVHZ.",
+    "FBC 2023": "Florida Building Code 2023 edition. Based on ASCE 7-22 with Florida-specific amendments.",
+    "Exposure Category B": "Urban and suburban areas, wooded areas. Most common for residential buildings in populated areas.",
+    "Exposure Category C": "Open terrain with scattered obstructions. Grassland, scattered trees, rural areas.",
+    "Exposure Category D": "Flat, open water areas and coastal zones without topographic features. Least common for buildings.",
+    "Risk Category I": "Low hazard to human life (agricultural buildings, temporary structures).",
+    "Risk Category II": "Buildings with normal hazard (residential, office, most commercial). Default for residential.",
+    "Risk Category III": "Substantial hazard (schools, hospitals, assembly occupancies).",
+    "Risk Category IV": "Critical for emergency response (fire stations, power plants, emergency operations centers).",
+    "Effective wind area": "Product of tributary width and height for the component. For doors: door width × height. For windows: glass area. For panels: panel area.",
+    "Critical Pressure": "Maximum positive and negative pressures across all zones. Product ratings must meet or exceed these values.",
+    "Mean roof height": "Height to eave (for sloped roofs) or average ridge height, measured from lowest grade point.",
+    "C&C": "Components & Cladding. ASCE 7-22 Chapter 30 provisions for pressure on building components and cladding (windows, doors, panels, etc.) as opposed to overall building design.",
+    "Importance Factor (I)": "Factor based on risk category (ASCE 7-22 Table 1.5-1). Adjusts wind speed for building importance.",
+    "Miami-Dade PAD": "Product Approval Directory. Miami-Dade County database of approved products with NOA certification.",
+    "Broward Reciprocity": "Broward County accepts Miami-Dade PAD approvals and direct NOA certifications from manufacturers."
+  },
+
+  "workflow": [
+    {
+      "step": 1,
+      "name": "Identify County & HVHZ Status",
+      "description": "Determine Florida county and whether location is in High-Velocity Hurricane Zone",
+      "action": "Ask user for county. Cross-reference with HVHZ status: Miami-Dade and Broward are entirely HVHZ; others may be partially HVHZ.",
+      "key_question": "Which Florida county is the building in?",
+      "why_it_matters": "HVHZ areas have higher wind speeds and require NOA product approvals. Non-HVHZ areas follow standard ASCE 7-22 Figure 26.5-1 wind speeds."
+    },
+    {
+      "step": 2,
+      "name": "Determine Ultimate Wind Speed (Vult)",
+      "description": "Look up 700-year return period wind speed for the location and risk category",
+      "action": "Direct user to ASCE Hazard Tool (hazards.atcouncil.org) or county HVHZ map. For HVHZ: typically 140–150 mph. For non-HVHZ: 100–120 mph depending on region.",
+      "key_question": "What is the ultimate wind speed for your location?",
+      "tool": "ASCE 7-22 Hazard Tool: https://hazards.atcouncil.org/",
+      "why_it_matters": "Vult is the foundation of all pressure calculations. Must be correct per ASCE 7-22 Figure 26.5-1 for the specific location and risk category."
+    },
+    {
+      "step": 3,
+      "name": "Determine Exposure Category",
+      "description": "Classify surrounding terrain as B (urban/suburban), C (open terrain), or D (coastal open water)",
+      "action": "Ask user to describe terrain within 0.5 miles upwind. B (most common for residential): urban/suburban/wooded. C: open with scattered obstructions. D: coastal/flat open water.",
+      "key_question": "What is the terrain around the building (0.5 miles upwind)?",
+      "guidance": "When in doubt, default to Category B for residential areas (more conservative). Check Google Earth or land use maps.",
+      "why_it_matters": "Exposure category determines Kz (velocity pressure exposure coefficient) per ASCE 7-22 Table 26.8-1. Different categories result in significantly different pressures."
+    },
+    {
+      "step": 4,
+      "name": "Gather Building & Component Dimensions",
+      "description": "Collect mean roof height, building footprint, and component effective wind area",
+      "action": "Ask for: (1) Mean roof height in feet (height to eave or average ridge). (2) Building length and width in feet (longest and shortest horizontal dimensions). (3) Component effective wind area in sq ft (width × height for doors/windows).",
+      "key_questions": [
+        "What is the mean roof height?",
+        "What are the building dimensions (length × width)?",
+        "What is the component size (e.g., 36\" × 80\" door = 20.5 sq ft)?"
+      ],
+      "examples": [
+        "Single-story house: 20 ft high, 60 ft × 40 ft footprint, 36×80 door = 20.5 sq ft",
+        "Multistory office: 45 ft high, 100 ft × 80 ft footprint, 4×6 window = 24 sq ft"
+      ],
+      "why_it_matters": "These dimensions determine zone end width 'a' and velocity pressure height variation. They directly affect calculated pressures."
+    },
+    {
+      "step": 5,
+      "name": "Call API Calculator",
+      "description": "POST request to /api/calculate with all gathered parameters",
+      "action": "Send CalculatorInput with: county, isHVHZ, ultimateWindSpeed, exposureCategory, meanRoofHeight, buildingLength, buildingWidth, effectiveWindArea, topographicFactor (default 1.0), riskCategory (default 2), address (optional).",
+      "api_endpoint": "POST /api/calculate",
+      "response": "CalculatorOutput with intermediate values, Zone 4/5 pressures, critical pressure, and warnings.",
+      "why_it_matters": "API performs ASCE 7-22 Chapter 30 calculations transparently. Outputs both zone pressures and critical values for product selection."
+    },
+    {
+      "step": 6,
+      "name": "Interpret Results & Compare Products",
+      "description": "Review calculated critical pressures and check against product ratings",
+      "action": "Explain Zone 4 vs Zone 5. Show critical positive and negative pressures. Ask for product rating (e.g., '+55 / –75 psf'). Check if product rating ≥ critical pressure in both directions.",
+      "key_question": "What is the product rated for (e.g., +55 psf inward / –75 psf suction)?",
+      "pass_rule": "Product POSITIVE rating ≥ critical positive AND product NEGATIVE rating ≥ critical negative.",
+      "example": "Calculation: +31.5 / –50.2 psf. Product: +55 / –75 psf. Result: PASSES (55 > 31.5 AND 75 > 50.2).",
+      "warning": "In HVHZ areas, product MUST also have NOA approval. A passing pressure rating alone is insufficient."
+    },
+    {
+      "step": 7,
+      "name": "Generate Certification Letter (if passing)",
+      "description": "Produce official documentation for permit submittal",
+      "action": "If product passes pressures and has required approvals, generate certification letter including: building address/specs, wind calculation summary, product info/rating, compliance statement.",
+      "when_to_generate": "Only if (1) product meets critical pressures, (2) HVHZ product has NOA approval, (3) all inputs verified with local authority.",
+      "letter_includes": [
+        "Project address and building specifications",
+        "County, HVHZ status, ultimate wind speed",
+        "Exposure category and mean roof height",
+        "Calculated zone pressures and critical pressure",
+        "Product name, approval number, rating",
+        "Compliance statement (pressures met, NOA status)",
+        "Calculation date and reference standards (ASCE 7-22, FBC 2023)"
+      ],
+      "why_it_matters": "Certification letter is submitted to local building department as proof of compliance. Required for permit approval."
+    }
+  ],
+
+  "hvhz_rules": {
+    "miami_dade": {
+      "county": "Miami-Dade",
+      "hvhz_status": "Entire county is HVHZ",
+      "wind_speed": "140+ mph ultimate (typically 140–150 mph depending on location)",
+      "special_rules": [
+        "All windows, doors, and cladding MUST have NOA (Notice of Acceptance) approval",
+        "Products must be tested per ASTM E1233 or equivalent pressure test standard",
+        "Many products require NOA letter from manufacturer (in addition to listing in PAD)",
+        "Building department often requires PE-signed wind calculations for permits",
+        "Wind rating must be clearly labeled on product per FBC 1620.2"
+      ],
+      "product_approval": {
+        "database": "Miami-Dade Product Approval Directory (PAD)",
+        "url": "https://permit.miamidade.gov/",
+        "lookup_method": "Search PAD by product type, manufacturer, and approval number",
+        "required": "NOA approval for HVHZ; local PAD listing or direct NOA letter"
+      },
+      "common_pitfalls": [
+        "Submitting products without NOA approval (automatic rejection)",
+        "Confusing 'Florida Approved' with 'HVHZ Approved' (different standards)",
+        "Missing manufacturer NOA letter (required documentation)",
+        "Using outdated product approvals (check expiration date in PAD)"
+      ],
+      "pe_requirement": "PE-signed calculations typically required for permits. This platform supports self-education but does not replace professional engineering."
+    },
+    "broward": {
+      "county": "Broward",
+      "hvhz_status": "Entire county is HVHZ",
+      "wind_speed": "140+ mph ultimate (typically 150 mph for coastal areas)",
+      "special_rules": [
+        "All components in HVHZ must have NOA approval",
+        "Broward accepts Miami-Dade PAD approvals (reciprocal recognition)",
+        "Broward also accepts direct NOA letters from manufacturers",
+        "Wind rating label required on all products per FBC 1620.2",
+        "Local building department may require PE verification for non-standard components"
+      ],
+      "product_approval": {
+        "database": "Broward Building & Safety",
+        "url": "https://www.broward.org/",
+        "lookup_method": "Accept Miami-Dade PAD OR direct NOA letter from manufacturer. Broward has reciprocal agreement with Miami-Dade.",
+        "required": "NOA approval; accepts Miami-Dade PAD or direct manufacturer NOA"
+      },
+      "common_pitfalls": [
+        "Assuming non-NOA products will be accepted (they will not in HVHZ)",
+        "Not verifying Broward reciprocity with Miami-Dade PAD",
+        "Missing wind rating labels on installed products",
+        "Using products with expired NOA approvals"
+      ],
+      "pe_requirement": "Similar to Miami-Dade; PE-signed documents often required for permits."
+    },
+    "other_florida_counties": {
+      "note": "Most other Florida counties are NOT entirely HVHZ, but some have HVHZ zones.",
+      "guidance": "Check county HVHZ boundary maps. Coastal areas often HVHZ; inland areas typically non-HVHZ.",
+      "wind_speed_range": "100–130 mph depending on county and proximity to coast",
+      "product_approval": "Check county building authority. Some accept ASTM E1233 testing; others have local approval requirements.",
+      "examples": [
+        "Hillsborough (Tampa): Mostly non-HVHZ (inland); HVHZ near Tampa Bay",
+        "Orange (Orlando): Non-HVHZ (inland)",
+        "Palm Beach: Partially HVHZ (coastal); non-HVHZ inland"
+      ]
+    }
+  },
+
+  "exposure_categories": {
+    "B": {
+      "name": "Exposure Category B",
+      "description": "Urban and suburban areas, wooded areas. Most common for residential buildings in populated areas.",
+      "terrain_characteristics": [
+        "City blocks with closely spaced buildings",
+        "Suburban neighborhoods with trees and moderate building density",
+        "Wooded areas with dense vegetation",
+        "Mixed residential/commercial zones"
+      ],
+      "obstruction_density": "Dense obstructions (buildings, trees, terrain features) reduce wind speeds",
+      "velocity_pressure_factor": "Lower velocity pressure factor (Kz) compared to C and D due to terrain roughness",
+      "typical_use": "Most residential buildings in populated Florida areas (Miami, Tampa, Orlando, etc.)",
+      "guidance": "Default choice for residential properties in towns and suburbs"
+    },
+    "C": {
+      "name": "Exposure Category C",
+      "description": "Open terrain with scattered obstructions. Grassland, scattered trees, rural areas.",
+      "terrain_characteristics": [
+        "Open rolling grassland or fields",
+        "Rural areas with scattered trees or farm structures",
+        "Sparse buildings with large spacings",
+        "Light vegetation, few permanent structures"
+      ],
+      "obstruction_density": "Moderate obstructions; less dense than B",
+      "velocity_pressure_factor": "Moderate velocity pressure factor (Kz); higher than B due to less obstruction",
+      "typical_use": "Rural properties, edges of towns, agricultural areas",
+      "guidance": "Use for properties on outskirts of developed areas or with significant open land upwind"
+    },
+    "D": {
+      "name": "Exposure Category D",
+      "description": "Flat, open water areas and coastal zones without topographic features. Least common for buildings.",
+      "terrain_characteristics": [
+        "Flat, unobstructed terrain over open water",
+        "Coastal areas without barriers or vegetation",
+        "Large bodies of water (ocean, sound, bay)",
+        "Very sparse or no permanent structures"
+      ],
+      "obstruction_density": "Minimal to no obstructions; wind flows unimpeded",
+      "velocity_pressure_factor": "Highest velocity pressure factor (Kz); highest wind speeds at all heights",
+      "typical_use": "Rare for buildings; only structures very near open water or waterfront",
+      "guidance": "Use only if building is immediately adjacent to open water with no land barriers upwind"
+    }
+  },
+
+  "risk_categories": {
+    "1": {
+      "category": "Risk Category I",
+      "name": "Low Hazard to Human Life",
+      "description": "Buildings whose failure would result in low hazard to human life.",
+      "examples": [
+        "Agricultural buildings (barns, silos)",
+        "Temporary structures",
+        "Storage facilities with no regular occupancy"
+      ],
+      "importance_factor": "Lower than Category II",
+      "common_use": "Rare for residential; mostly agricultural"
+    },
+    "2": {
+      "category": "Risk Category II",
+      "name": "Standard Hazard",
+      "description": "Buildings whose failure would result in low to moderate hazard to human life. DEFAULT for residential.",
+      "examples": [
+        "Residential buildings (houses, apartments)",
+        "Office buildings",
+        "Retail/commercial buildings",
+        "Most common buildings"
+      ],
+      "importance_factor": "Standard; used as baseline",
+      "common_use": "DEFAULT for residential properties, most commercial buildings"
+    },
+    "3": {
+      "category": "Risk Category III",
+      "name": "Substantial Hazard to Human Life",
+      "description": "Buildings whose failure would result in substantial hazard to human life or loss of essential facilities.",
+      "examples": [
+        "Schools and colleges",
+        "Hospitals and medical facilities",
+        "Assembly occupancies (theaters, stadiums)",
+        "Emergency response facilities"
+      ],
+      "importance_factor": "Higher than Category II",
+      "common_use": "Educational, healthcare, emergency response"
+    },
+    "4": {
+      "category": "Risk Category IV",
+      "name": "Critical",
+      "description": "Buildings whose failure would result in massive loss of life or critical functional interruption.",
+      "examples": [
+        "Fire stations and emergency operations centers",
+        "Power plants and electrical substations",
+        "Water treatment and distribution centers",
+        "Critical communications facilities"
+      ],
+      "importance_factor": "Highest; strictest requirements",
+      "common_use": "Critical infrastructure; rare"
+    }
+  },
+
+  "example_calculations": [
+    {
+      "title": "Example 1: Miami-Dade Door Replacement (HVHZ)",
+      "scenario": "Homeowner in Miami-Dade replacing a 36×80 (20.5 sq ft) entry door. Single-story home, 20 ft high, 60×40 ft footprint.",
+      "inputs": {
+        "county": "Miami-Dade",
+        "isHVHZ": true,
+        "ultimateWindSpeed": 140,
+        "exposureCategory": "B",
+        "meanRoofHeight": 20,
+        "buildingLength": 60,
+        "buildingWidth": 40,
+        "effectiveWindArea": 20.5,
+        "topographicFactor": 1.0,
+        "riskCategory": 2,
+        "address": "123 Coral Way, Miami, FL 33134"
+      },
+      "outputs": {
+        "intermediate": {
+          "zoneEndWidth": 6.4,
+          "velocityPressure": 46.2,
+          "exposureCoefficient": 0.85,
+          "directionalityFactor": 0.85,
+          "groundElevationFactor": 1.0
+        },
+        "zone4": {
+          "positive": 24.8,
+          "negative": -38.1,
+          "loads": { "positive": 508, "negative": -781 }
+        },
+        "zone5": {
+          "positive": 27.6,
+          "negative": -44.8,
+          "loads": { "positive": 566, "negative": -918 }
+        },
+        "criticalPressure": { "positive": 27.6, "negative": 44.8 }
+      },
+      "interpretation": "Door must resist +27.6 psf inward push and 44.8 psf outward suction. Product must be rated at least +28 / –45 psf and have NOA approval.",
+      "product_example": "Product rated +55 / –80 psf with NOA approval → PASSES",
+      "certification": "Generate letter for Miami-Dade Building Permit. Include NOA approval number and manufacturer documentation."
+    },
+    {
+      "title": "Example 2: Tampa Window Replacement (Non-HVHZ)",
+      "scenario": "Contractor in Hillsborough County (Tampa, non-HVHZ) replacing a 4×6 window (24 sq ft). Two-story townhome, 25 ft mean roof height, 80×50 ft footprint.",
+      "inputs": {
+        "county": "Hillsborough",
+        "isHVHZ": false,
+        "ultimateWindSpeed": 115,
+        "exposureCategory": "B",
+        "meanRoofHeight": 25,
+        "buildingLength": 80,
+        "buildingWidth": 50,
+        "effectiveWindArea": 24,
+        "topographicFactor": 1.0,
+        "riskCategory": 2,
+        "address": "456 Oak Ave, Tampa, FL 33602"
+      },
+      "outputs": {
+        "intermediate": {
+          "zoneEndWidth": 8,
+          "velocityPressure": 27.4,
+          "exposureCoefficient": 0.88,
+          "directionalityFactor": 0.85,
+          "groundElevationFactor": 1.0
+        },
+        "zone4": {
+          "positive": 14.2,
+          "negative": -21.9,
+          "loads": { "positive": 341, "negative": -526 }
+        },
+        "zone5": {
+          "positive": 15.8,
+          "negative": -25.6,
+          "loads": { "positive": 379, "negative": -614 }
+        },
+        "criticalPressure": { "positive": 15.8, "negative": 25.6 }
+      },
+      "interpretation": "Window must resist +15.8 psf and –25.6 psf. Lower pressures than Miami-Dade due to lower wind speed.",
+      "product_example": "Product rated +35 / –50 psf (standard Florida-approved product) → PASSES",
+      "certification": "NOA not required (non-HVHZ). Standard Florida Product Approval sufficient. Submit to Hillsborough Building Permit."
+    },
+    {
+      "title": "Example 3: Broward High-Rise (HVHZ, Exposure D)",
+      "scenario": "Architect designing a coastal condo in Broward (HVHZ, exposure D due to ocean proximity). Individual window unit 4×6 ft (24 sq ft) at high-rise level.",
+      "inputs": {
+        "county": "Broward",
+        "isHVHZ": true,
+        "ultimateWindSpeed": 150,
+        "exposureCategory": "D",
+        "meanRoofHeight": 80,
+        "buildingLength": 120,
+        "buildingWidth": 60,
+        "effectiveWindArea": 24,
+        "topographicFactor": 1.0,
+        "riskCategory": 2,
+        "address": "999 Ocean Blvd, Fort Lauderdale, FL 33316"
+      },
+      "outputs": {
+        "intermediate": {
+          "zoneEndWidth": 12,
+          "velocityPressure": 72.8,
+          "exposureCoefficient": 1.05,
+          "directionalityFactor": 0.85,
+          "groundElevationFactor": 1.0
+        },
+        "zone4": {
+          "positive": 39.1,
+          "negative": -60.3,
+          "loads": { "positive": 938, "negative": -1447 }
+        },
+        "zone5": {
+          "positive": 43.7,
+          "negative": -67.5,
+          "loads": { "positive": 1049, "negative": -1620 }
+        },
+        "criticalPressure": { "positive": 43.7, "negative": 67.5 }
+      },
+      "interpretation": "Very high pressures due to exposure D (coastal) and height. Window must resist +43.7 / –67.5 psf.",
+      "product_example": "High-performance window rated +60 / –90 psf with NOA approval → PASSES",
+      "certification": "NOA approval required (HVHZ). High-rise also likely requires wind tunnel testing and PE-sealed design (beyond this calculator scope)."
+    }
+  ],
+
+  "product_comparison_guide": {
+    "overview": "After obtaining calculated critical pressures, compare against product ratings to determine if product will pass design.",
+    "key_rule": "Product positive rating ≥ critical positive pressure AND product negative rating ≥ critical negative pressure",
+    "pressure_units": "All pressures in psf (pounds per square foot). Negative pressures (suction) are typically expressed as positive numbers (e.g., '–75 psf' = rated for 75 psf suction).",
+    "example": {
+      "scenario": "Calculated critical pressure: +32 / –51 psf. Product rated: +55 / –80 psf.",
+      "check_positive": "Product +55 ≥ calculated +32? YES → positive pressure passes",
+      "check_negative": "Product –80 ≥ calculated –51? YES → negative pressure passes (higher absolute value)",
+      "result": "PRODUCT PASSES"
+    },
+    "hvhz_requirement": "In HVHZ areas (Miami-Dade, Broward), product MUST also have NOA (Notice of Acceptance) approval. Passing pressure alone is insufficient.",
+    "product_rating_sources": [
+      "Miami-Dade Product Approval Directory (PAD)",
+      "Manufacturer literature and test reports",
+      "ASTM E1233 test results",
+      "Florida Product Approval number (e.g., 'FL12345-R2')"
+    ],
+    "margin_analysis": "Optional but recommended: calculate margin = product rating – critical pressure. Positive margin = excess capacity. Negative margin = deficient (product fails).",
+    "common_mistakes": [
+      "Confusing negative pressure direction (higher absolute value is safer)",
+      "Forgetting NOA requirement in HVHZ",
+      "Using wrong product rating (e.g., mistaking 'tested pressure' for 'rated pressure')",
+      "Not accounting for component area variation (larger area = lower pressure requirement per unit area)"
+    ]
+  },
+
+  "common_pitfalls": [
+    {
+      "pitfall": "Confusing ultimate wind speed (Vult) with mean wind speed",
+      "explanation": "Vult is the 700-year return period (rare) wind speed. It is much higher than the average or 50-year return period wind speed.",
+      "fix": "Always use ASCE 7-22 Figure 26.5-1 or HVHZ map for Vult. Do NOT use weather station average or 50-year data.",
+      "impact": "Using wrong wind speed completely invalidates calculations."
+    },
+    {
+      "pitfall": "Forgetting NOA (Notice of Acceptance) requirement in HVHZ",
+      "explanation": "In Miami-Dade and Broward counties (entirely HVHZ), a product rated +60 / –80 psf is worthless without NOA approval. Building department will reject the submittal.",
+      "fix": "For HVHZ projects, always verify NOA status in Miami-Dade PAD or obtain NOA letter from manufacturer.",
+      "impact": "Automatic permit rejection if NOA is missing in HVHZ areas."
+    },
+    {
+      "pitfall": "Mixing up positive and negative pressure directions",
+      "explanation": "Positive = inward push (windward side). Negative = outward suction (leeward side, roof edges). Both directions must be checked; negative is often the critical constraint.",
+      "fix": "Remember: positive is 'pushing in', negative is 'pulling out'. Check critical values for both directions.",
+      "impact": "Could select product that fails in one direction (e.g., fails suction even if passes inward pressure)."
+    },
+    {
+      "pitfall": "Wrong exposure category selection",
+      "explanation": "Choosing Exposure C or D when terrain is actually B makes calculations overly conservative and inflates required ratings.",
+      "fix": "Look at actual terrain within 0.5 miles upwind. Google Earth helpful. Default to B for residential areas in towns/suburbs.",
+      "impact": "Overdesigned requirements; may require unnecessarily expensive products."
+    },
+    {
+      "pitfall": "Effective wind area calculation errors",
+      "explanation": "For a door 3 ft wide × 6.83 ft tall, area = 3 × 6.83 = 20.5 sq ft. Do NOT include frame thickness; use glass/opening area only.",
+      "fix": "Effective area = component width × height in the plane perpendicular to wind.",
+      "impact": "Wrong area = wrong loads (pressure × area). Can underestimate component sizing requirement."
+    },
+    {
+      "pitfall": "Topographic factor (Kzt) overuse",
+      "explanation": "Default Kzt = 1.0 (flat terrain). Kzt > 1.0 ONLY if building is on a hilltop or ridge summit per ASCE 7-22 Section 26.8. 'Elevated' does not mean Kzt > 1.0.",
+      "fix": "Use Kzt = 1.0 unless site-specific topographic analysis supports higher value (e.g., building on isolated hill with documented slope).",
+      "impact": "Inflated pressures if Kzt wrongly increased. Can require overly robust products."
+    },
+    {
+      "pitfall": "Risk category confusion",
+      "explanation": "Most residential buildings = Category II (default). Choosing Category III or IV without justification inflates importance factor and wind speeds.",
+      "fix": "Default to Category II for residential. Verify Category III/IV with local building department if applicable.",
+      "impact": "Higher importance factor = higher calculated pressures = more expensive products."
+    },
+    {
+      "pitfall": "Neglecting intermediate values",
+      "explanation": "Users focus only on final critical pressure and ignore zone end width, velocity pressure, and exposure coefficient. These intermediate values are important for understanding and verification.",
+      "fix": "Review intermediate values in output. Understand how velocity pressure is calculated (Kz, Kzt, Kd, wind speed).",
+      "impact": "Cannot verify calculation accuracy or catch errors. Blind trust of final result."
+    },
+    {
+      "pitfall": "Assuming county location is sufficient for HVHZ determination",
+      "explanation": "Some counties (e.g., Hillsborough) have both HVHZ and non-HVHZ zones. Building location within county matters.",
+      "fix": "Check HVHZ boundary map for the specific county. Coastal and near-coast areas are HVHZ; inland typically non-HVHZ.",
+      "impact": "May apply wrong product approval requirements (NOA vs. standard)."
+    },
+    {
+      "pitfall": "Using outdated product approvals",
+      "explanation": "Product approvals expire or are superseded. Checking outdated PAD entries or using old NOA letters is unreliable.",
+      "fix": "Verify product approval date in Miami-Dade PAD or obtain recent NOA letter directly from manufacturer. Check approval expiration.",
+      "impact": "Building department may reject expired approvals. Permit delayed or denied."
+    },
+    {
+      "pitfall": "Submitting self-calculated results without PE signature when required",
+      "explanation": "Miami-Dade and Broward counties often require PE-signed and sealed wind calculations for permit submittal. This platform is educational; not a replacement for PE services.",
+      "fix": "Consult building department before submittal. If PE signature required, hire professional engineer (this calculator supports their analysis but does not replace them).",
+      "impact": "Permit rejection if required PE signature is missing. May face fines or penalties for unsigned engineering work."
+    }
+  ],
+
+  "resources": {
+    "official_standards": {
+      "ASCE_7-22": {
+        "title": "ASCE/SEI 7-22: Minimum Design Loads and Associated Criteria for Buildings and Other Structures",
+        "url": "https://www.asce.org/",
+        "description": "Current standard for wind pressure calculations in the U.S. Required reference for all calculations.",
+        "cost": "Purchase required (typically $400–500 for PDF)"
+      },
+      "Florida_Building_Code_2023": {
+        "title": "Florida Building Code 2023",
+        "url": "https://codes.iccsafe.org/",
+        "description": "Florida adoption of IBC 2021 with ASCE 7-22 and state amendments. Governs all Florida construction including HVHZ requirements.",
+        "cost": "Purchase required"
+      },
+      "Florida_Administrative_Code_62-6": {
+        "title": "Florida Administrative Code 62-6.002: HVHZ Design and Construction",
+        "url": "https://www.floridadisaster.org/",
+        "description": "HVHZ-specific regulations for High-Velocity Hurricane Zones. Includes NOA approval requirements.",
+        "cost": "Free (public regulation)"
+      }
+    },
+    "tools_and_calculators": {
+      "ASCE_Hazard_Tool": {
+        "name": "ASCE 7 Hazard Tool",
+        "url": "https://hazards.atcouncil.org/",
+        "description": "Official ASCE wind speed lookup tool. Provides Figure 26.5-1 wind speeds for any U.S. location. Essential for finding Vult."
+      },
+      "Miami_Dade_PAD": {
+        "name": "Miami-Dade Product Approval Directory (PAD)",
+        "url": "https://permit.miamidade.gov/",
+        "description": "Database of NOA-approved products for Miami-Dade County. Search by product type, manufacturer, approval number."
+      },
+      "Wind_Cert_Platform": {
+        "name": "ASCE 7-22 Wind Certification Platform (this tool)",
+        "url": "http://localhost:3000",
+        "description": "Calculator for Components & Cladding wind pressures per ASCE 7-22 Chapter 30."
+      }
+    },
+    "regulatory_agencies": {
+      "Miami_Dade_Building": {
+        "name": "Miami-Dade County Building & Safety Engineering",
+        "url": "https://permit.miamidade.gov/",
+        "description": "Responsible for building permits and code compliance in Miami-Dade. Contact for permit questions."
+      },
+      "Broward_Building": {
+        "name": "Broward County Building & Safety",
+        "url": "https://www.broward.org/",
+        "description": "Responsible for building permits and code compliance in Broward County."
+      },
+      "Florida_DEM": {
+        "name": "Florida Division of Emergency Management (FDEM)",
+        "url": "https://www.floridadisaster.org/",
+        "description": "Manages HVHZ maps, wind hazard zones, and building code coordination for Florida."
+      }
+    },
+    "educational_resources": {
+      "DIY_Wind_Certification_Guide": {
+        "name": "DIY Wind Certification Guide for Florida Homeowners",
+        "url": "https://github.com/oasiseng/diy-wind-certification-guide",
+        "description": "Open-source guide covering wind calculation basics, product approval lookup, and certification process."
+      },
+      "Oasis_Engineering": {
+        "name": "Oasis Engineering (Professional Services)",
+        "url": "https://www.oasisengineering.com",
+        "description": "Professional wind engineering and certification services. Offers PE-signed documents if self-calculation insufficient."
+      }
+    }
+  },
+
+  "conversation_templates": {
+    "homeowner_door_replacement": {
+      "role": "Homeowner in Miami-Dade considering door replacement",
+      "scenario": "Homeowner wants to replace entry door and needs to verify it meets wind requirements for permit.",
+      "conversation_flow": [
+        "Agent: 'I can help you verify your door is safe for Miami wind. Let me gather some info: Is this a single-story home?'",
+        "User: 'Yes, one story, about 20 feet to the roof.'",
+        "Agent: 'Great. Is the door a standard size? (Most doors are 36\" wide × 80\" tall = ~20 sq ft.)'",
+        "User: 'Yes, that's right.'",
+        "Agent: 'What is your ultimate wind speed? Miami-Dade is HVHZ, typically 140 mph. Let me check ASCE tool for your exact address...'",
+        "Agent: 'For a typical Miami neighborhood, the terrain is urban/suburban (Exposure B). The building is 60 ft × 40 ft. Your door must resist approximately +28 to +32 psf inward and 45–50 psf outward suction.'",
+        "User: 'My product is rated +55 / –80 psf and has NOA approval. Is that good?'",
+        "Agent: 'Perfect! Your product PASSES. +55 > +32 and –80 > –50. Let me generate a certification letter for your permit.'"
+      ],
+      "key_points": [
+        "Assume Exposure B (urban/suburban) unless user indicates otherwise",
+        "Default mean roof height 20 ft for single-story homes",
+        "Verify NOA approval for HVHZ (Miami-Dade) before finalizing",
+        "Provide certification letter for building permit submittal"
+      ]
+    },
+    "contractor_multi_project": {
+      "role": "Contractor managing multiple window replacement projects across Florida",
+      "scenario": "Contractor needs to verify all windows meet code for different counties (some HVHZ, some not).",
+      "conversation_flow": [
+        "Agent: 'I can help you batch-verify your projects. Let's organize by county and building type.'",
+        "Contractor: 'We have 20 windows in Broward (HVHZ), 15 in Hillsborough (non-HVHZ).'",
+        "Agent: 'For Broward, all windows MUST have NOA approval. For Hillsborough, standard Florida approval is fine. Let me calculate project by project.'",
+        "Agent: 'Broward Project A: 4×6 window, 25 ft roof height → requires +42 / –65 psf. Your selected product +60 / –90 psf? PASSES.'",
+        "Agent: 'Hillsborough Project B: Same window size, lower wind speed → requires +24 / –37 psf. Product +35 / –50 psf? PASSES.'",
+        "Contractor: 'Can you give me a summary sheet?'",
+        "Agent: 'Generating batch report with all calculations, product comparisons, and approval checklists.'"
+      ],
+      "key_points": [
+        "Track HVHZ vs. non-HVHZ separately; different approval requirements",
+        "Run calculator for each building location (different height, dimensions, wind speed)",
+        "Batch-compare product ratings across projects",
+        "Provide summary sheet for contractor and building dept. submittal"
+      ]
+    },
+    "architect_high_rise": {
+      "role": "Architect designing high-rise residential building in Broward County",
+      "scenario": "Architect needs to determine wind load requirements for cladding and fenestration design.",
+      "conversation_flow": [
+        "Agent: 'For a high-rise in Broward HVHZ, wind design is critical. Let me help you understand the pressure zones.'",
+        "Architect: 'It's a 20-story building, 200 feet high, near the coast (Exposure D).'",
+        "Agent: 'Exposure D (coastal) means higher wind speeds throughout the building. At 200 feet, you'll see significant pressure variation with height.'",
+        "Agent: 'For a typical window unit at mean roof height (~200 ft), Broward HVHZ Exposure D, the critical pressure is approximately +55 to +75 psf inward, 80–100+ psf suction.'",
+        "Architect: 'That's much higher than standard residential. What about lower floors?'",
+        "Agent: 'Lower floors have lower velocity pressure (wind speed increases with height). Ground floor might be +30 / –50 psf; top floors +70 / –110 psf. This calculator can compute each level.'",
+        "Architect: 'For a building this size, do you recommend wind tunnel testing?'",
+        "Agent: 'Yes. ASCE 7-22 and FBC allow wind tunnel testing for alternative designs. The Platform provides baseline ASCE 7-22 values, but for complex/tall buildings, wind tunnel analysis is standard practice and often required.'"
+      ],
+      "key_points": [
+        "High-rise buildings (>200 ft) often require wind tunnel testing",
+        "This calculator provides baseline ASCE 7-22 Chapter 30 for C&C; not substitute for full aerodynamic analysis",
+        "Pressure varies significantly with height; need to calculate multiple levels",
+        "Refer architect to wind engineering specialists for complex designs"
+      ]
+    }
+  }
+}

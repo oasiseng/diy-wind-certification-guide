@@ -1,0 +1,755 @@
+openapi: 3.0.0
+
+info:
+  title: ASCE 7-22 Wind Certification Platform API
+  description: |
+    Complete RESTful API for calculating wind pressures and loads on building components
+    per ASCE 7-22 Chapter 30 for Florida buildings. Supports full workflow from calculation
+    through product comparison and certification letter generation.
+
+    ## Platform Scope
+    - **Standard**: ASCE/SEI 7-22 (Minimum Design Loads and Associated Criteria)
+    - **Jurisdiction**: Florida statewide with special HVHZ rules for Miami-Dade and Broward
+    - **Components**: Windows, doors, cladding, and other building components
+    - **Zones**: Zone 4 (interior) and Zone 5 (corner/edge) pressure calculations
+
+    ## Quick Start
+    1. Gather building parameters: county, wind speed, exposure category, dimensions
+    2. POST /api/calculate with CalculatorInput
+    3. Receive CalculatorOutput with zone pressures and critical values
+    4. Compare product ratings against critical pressures
+    5. Generate certification letter if product passes
+  version: 1.0.0
+  contact:
+    name: Wind Certification Platform Support
+    url: https://github.com/oasiseng/wind-cert-platform
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+  - url: https://api.windcert.example.com
+    description: Production API server (example)
+
+tags:
+  - name: Calculations
+    description: Wind pressure calculation endpoints
+  - name: Reference
+    description: Reference data and documentation endpoints
+
+paths:
+  /api/calculate:
+    post:
+      tags:
+        - Calculations
+      summary: Calculate wind pressures on building component
+      description: |
+        Calculates ASCE 7-22 Chapter 30 wind pressures for a specific building location
+        and component. Returns pressures for Zone 4 (interior) and Zone 5 (corner/edge),
+        critical design pressures, intermediate calculation values, and warnings.
+
+        ## Calculation Steps
+        1. Determines velocity pressure (qh) using Kz, Kzt, Kd, Ke, and wind speed
+        2. Calculates zone end width (a) defining corner/edge zone boundaries
+        3. Applies pressure coefficients (GCp) per ASCE 7-22 Figure 30.3-1
+        4. Computes pressures and loads for both Zone 4 and Zone 5
+        5. Identifies critical (maximum) pressures for product selection
+        6. Generates warnings for special conditions (HVHZ, high wind, etc.)
+
+        ## Important Notes
+        - All input values must comply with ASCE 7-22 and Florida Building Code 2023
+        - For HVHZ areas (Miami-Dade, Broward), products MUST have NOA approval
+        - Review all warnings before finalizing calculations
+        - This calculation is for Components & Cladding (C&C), not whole building design
+      operationId: calculateWindPressure
+      requestBody:
+        description: Building and component parameters for wind pressure calculation
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalculatorInput'
+            examples:
+              miamidadeDoor:
+                summary: Miami-Dade entry door replacement (HVHZ)
+                value:
+                  county: "Broward"
+                  isHVHZ: true
+                  ultimateWindSpeed: 140
+                  exposureCategory: "B"
+                  meanRoofHeight: 20
+                  buildingLength: 60
+                  buildingWidth: 40
+                  effectiveWindArea: 24
+                  topographicFactor: 1.0
+                  riskCategory: 2
+                  address: "123 Main St, Fort Lauderdale, FL 33301"
+              tampaNonHVHZ:
+                summary: Tampa window replacement (non-HVHZ)
+                value:
+                  county: "Hillsborough"
+                  isHVHZ: false
+                  ultimateWindSpeed: 115
+                  exposureCategory: "B"
+                  meanRoofHeight: 25
+                  buildingLength: 80
+                  buildingWidth: 50
+                  effectiveWindArea: 24
+                  topographicFactor: 1.0
+                  riskCategory: 2
+                  address: "456 Oak Ave, Tampa, FL 33602"
+      responses:
+        '200':
+          description: Calculation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalculatorOutput'
+              examples:
+                successExample:
+                  summary: Successful calculation with results
+                  value:
+                    input:
+                      county: "Broward"
+                      isHVHZ: true
+                      ultimateWindSpeed: 140
+                      exposureCategory: "B"
+                      meanRoofHeight: 20
+                      buildingLength: 60
+                      buildingWidth: 40
+                      effectiveWindArea: 24
+                      topographicFactor: 1.0
+                      riskCategory: 2
+                      address: "123 Main St, Fort Lauderdale, FL 33301"
+                    intermediate:
+                      zoneEndWidth: 8
+                      velocityPressure: 52.3
+                      exposureCoefficient: 0.95
+                      directionalityFactor: 0.85
+                      groundElevationFactor: 1.0
+                    zone4:
+                      positive: 28.6
+                      negative: -42.9
+                      loads:
+                        positive: 686.4
+                        negative: -1029.6
+                    zone5:
+                      positive: 31.5
+                      negative: -50.2
+                      loads:
+                        positive: 756
+                        negative: -1204.8
+                    criticalPressure:
+                      positive: 31.5
+                      negative: 50.2
+                    asce7Version: "7-22"
+                    floridaBuildingCodeVersion: "2023 FBC"
+                    calculatedAt: "2024-03-15T14:30:00Z"
+                    warnings:
+                      - "Building is in HVHZ - ensure products have NOA (Notice of Acceptance) approval"
+                      - "High wind speed (140 mph) - verify from current ASCE 7-22 Figure 26.5-1"
+        '400':
+          description: Bad request - invalid input format or missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingField:
+                  summary: Missing required field
+                  value:
+                    error: "Bad Request"
+                    message: "Missing required field: ultimateWindSpeed"
+                    statusCode: 400
+        '422':
+          description: Validation failed - input values out of range or invalid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidExposure:
+                  summary: Invalid exposure category
+                  value:
+                    error: "Validation Error"
+                    message: "Invalid exposure category: 'E'. Must be 'B', 'C', or 'D'"
+                    statusCode: 422
+                    details:
+                      field: "exposureCategory"
+                      value: "E"
+                      constraint: "enum"
+                outOfRange:
+                  summary: Value out of allowed range
+                  value:
+                    error: "Validation Error"
+                    message: "ultimateWindSpeed must be between 85 and 300 mph"
+                    statusCode: 422
+                    details:
+                      field: "ultimateWindSpeed"
+                      value: 50
+                      constraint: "minimum"
+        '500':
+          description: Internal server error during calculation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                serverError:
+                  summary: Calculation error
+                  value:
+                    error: "Internal Server Error"
+                    message: "An error occurred during calculation"
+                    statusCode: 500
+
+  /api/llm-context:
+    get:
+      tags:
+        - Reference
+      summary: Get complete LLM reference context
+      description: |
+        Returns the complete llm-reference.json document containing:
+        - Full schema definitions
+        - Glossary of all terms and abbreviations
+        - 7-step workflow documentation
+        - HVHZ rules for Miami-Dade and Broward
+        - Exposure category descriptions
+        - Risk category definitions
+        - Example calculations with interpretations
+        - Product comparison guidelines
+        - Common pitfalls and how to avoid them
+        - Resource links (official standards, tools, regulatory agencies)
+        - Conversation templates for different user roles
+
+        Designed for LLM/AI assistant integration to provide complete platform knowledge
+        in a single request.
+      operationId: getLLMContext
+      responses:
+        '200':
+          description: Complete LLM reference context
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meta:
+                    type: object
+                    description: Metadata about the platform and standards
+                  api:
+                    type: object
+                    description: API endpoint documentation
+                  schemas:
+                    type: object
+                    description: Input and output JSON schema definitions
+                  glossary:
+                    type: object
+                    additionalProperties:
+                      type: string
+                    description: Dictionary of terms and definitions
+                  workflow:
+                    type: array
+                    description: 7-step calculation workflow
+                  hvhz_rules:
+                    type: object
+                    description: HVHZ-specific rules for Miami-Dade and Broward
+                  exposure_categories:
+                    type: object
+                    description: Detailed exposure category descriptions
+                  risk_categories:
+                    type: object
+                    description: Risk category definitions and importance factors
+                  example_calculations:
+                    type: array
+                    description: Complete worked examples with interpretations
+                  product_comparison_guide:
+                    type: object
+                    description: How to compare products against calculated pressures
+                  common_pitfalls:
+                    type: array
+                    description: Common mistakes and how to avoid them
+                  resources:
+                    type: object
+                    description: Links to official standards, tools, and resources
+                  conversation_templates:
+                    type: object
+                    description: Example conversation flows for different user roles
+        '500':
+          description: Internal server error retrieving context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CalculatorInput:
+      type: object
+      title: ASCE 7-22 Wind Pressure Calculator Input
+      description: |
+        All parameters required for ASCE 7-22 Chapter 30 wind pressure calculation.
+        All values must comply with ASCE 7-22 and Florida Building Code 2023 requirements.
+      required:
+        - county
+        - isHVHZ
+        - ultimateWindSpeed
+        - exposureCategory
+        - meanRoofHeight
+        - buildingLength
+        - buildingWidth
+        - effectiveWindArea
+      properties:
+        county:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: |
+            Florida county name where building is located.
+            Examples: "Broward", "Miami-Dade", "Hillsborough", "Orange", "Palm Beach"
+            Used to determine HVHZ status per Florida Administrative Code 62-6.002
+          example: "Broward"
+        isHVHZ:
+          type: boolean
+          description: |
+            Whether building location is in a High-Velocity Hurricane Zone.
+            HVHZ areas are subject to higher wind speeds (typically 140+ mph) and
+            require NOA (Notice of Acceptance) product approvals per FBC 2023.
+
+            Miami-Dade and Broward: entirely HVHZ
+            Other counties: check HVHZ boundary maps for your area
+          example: true
+        ultimateWindSpeed:
+          type: number
+          minimum: 85
+          maximum: 300
+          description: |
+            Ultimate wind speed (Vult) in miles per hour.
+            700-year return period wind speed per ASCE 7-22 Figure 26.5-1
+            (standard areas) or HVHZ map (high-velocity areas).
+
+            Typical ranges:
+            - HVHZ areas: 140–150 mph
+            - Non-HVHZ coastal: 110–130 mph
+            - Non-HVHZ inland: 85–120 mph
+
+            Look up using ASCE Hazard Tool: https://hazards.atcouncil.org/
+          example: 140
+        exposureCategory:
+          type: string
+          enum:
+            - "B"
+            - "C"
+            - "D"
+          description: |
+            Exposure category per ASCE 7-22 Section 26.7.
+            Describes surrounding terrain and affects velocity pressure variation with height.
+
+            - "B": Urban and suburban areas, wooded areas (most common for residential)
+            - "C": Open terrain with scattered obstructions (grassland, scattered trees)
+            - "D": Flat open water areas (coastal zones without topographic features)
+
+            Determine by examining land use and terrain within 0.5 miles upwind.
+            Default to "B" for residential areas in towns/suburbs.
+          example: "B"
+        meanRoofHeight:
+          type: number
+          minimum: 5
+          maximum: 200
+          description: |
+            Mean roof height in feet.
+            Height to the eave (lower edge of roof) or average ridge height.
+            Measured from the lowest point of building at grade.
+
+            For pitched roofs: use height at the eave
+            For flat roofs: use height to roof edge
+
+            Used to determine velocity pressure (qh) per ASCE 7-22 Section 26.10
+          example: 20
+        buildingLength:
+          type: number
+          minimum: 5
+          maximum: 1000
+          description: |
+            Building length in feet.
+            Longest horizontal dimension, measured parallel to dominant wind direction.
+
+            For rectangular buildings: the longer of the two horizontal dimensions.
+            Used to calculate zone end width "a" per ASCE 7-22 Figure 30.3-1
+          example: 60
+        buildingWidth:
+          type: number
+          minimum: 5
+          maximum: 1000
+          description: |
+            Building width in feet.
+            Shortest horizontal dimension, measured perpendicular to wind direction.
+
+            For rectangular buildings: the shorter of the two horizontal dimensions.
+            Also used for zone end width calculation.
+          example: 40
+        effectiveWindArea:
+          type: number
+          minimum: 1
+          maximum: 1000
+          description: |
+            Effective wind area in square feet for the component being analyzed.
+            Product of tributary width and height.
+
+            - For doors: door width × door height
+            - For windows: glass area or frame opening area
+            - For wall panels: panel area
+            - For roof areas: tributary area
+
+            Determines the actual wind load (pressure × area) on the component.
+            Example: 36" wide × 80" tall door = 3 ft × 6.67 ft = ~20 sq ft
+          example: 24
+        topographicFactor:
+          type: number
+          default: 1.0
+          minimum: 0.8
+          maximum: 1.2
+          description: |
+            Topographic factor (Kzt) per ASCE 7-22 Section 26.8.
+            Accounts for wind speed-up effects over hills, ridges, and escarpments.
+
+            Default: 1.0 (flat terrain, no wind speed-up effect)
+            Range: 1.0 (no effect) to 1.2 (maximum wind speed-up)
+
+            Use Kzt > 1.0 ONLY if building is located on summit or upper half of
+            isolated hill, ridge, or escarpment with documented topographic analysis.
+            "Elevated" alone does not justify Kzt > 1.0.
+          example: 1.0
+        riskCategory:
+          type: integer
+          enum:
+            - 1
+            - 2
+            - 3
+            - 4
+          default: 2
+          description: |
+            Risk category per ASCE 7-22 Table 1.5-1.
+            Determines the importance factor (I) applied to wind speeds.
+
+            - 1: Low hazard (agriculture, temporary structures)
+            - 2: Standard hazard (residential, office buildings) - DEFAULT for most buildings
+            - 3: Substantial hazard (schools, hospitals, assembly occupancies)
+            - 4: Critical (fire stations, power plants, emergency operations centers)
+
+            Default: 2 (typical residential buildings)
+            Verify Category III/IV with local building department if applicable.
+          example: 2
+        address:
+          type: string
+          minLength: 0
+          maxLength: 200
+          description: |
+            Project street address or location description for record-keeping and documentation.
+            Not used in calculations but helps track project context and audit trail.
+            Example: "123 Main St, Orlando, FL 32801"
+          example: "123 Main St, Fort Lauderdale, FL 33301"
+
+    CalculatorOutput:
+      type: object
+      title: ASCE 7-22 Wind Pressure Calculator Output
+      description: |
+        Complete results from ASCE 7-22 Chapter 30 wind pressure calculation.
+        Includes intermediate calculation values, zone pressures, critical design pressures,
+        and warnings for special conditions.
+      required:
+        - input
+        - intermediate
+        - zone4
+        - zone5
+        - criticalPressure
+        - asce7Version
+        - floridaBuildingCodeVersion
+        - calculatedAt
+        - warnings
+      properties:
+        input:
+          $ref: '#/components/schemas/CalculatorInput'
+          description: Snapshot of input parameters used for calculation (audit trail)
+        intermediate:
+          $ref: '#/components/schemas/IntermediateValues'
+          description: Intermediate calculation values showing key steps per ASCE 7-22 formulas
+        zone4:
+          $ref: '#/components/schemas/ZonePressure'
+          description: |
+            Wind pressures and loads for Zone 4 (interior zone).
+            Interior/middle portions of building facade away from edges and corners.
+            Typically experiences lower suction than Zone 5.
+        zone5:
+          $ref: '#/components/schemas/ZonePressure'
+          description: |
+            Wind pressures and loads for Zone 5 (corner/edge zone).
+            Areas within distance "a" (zone end width) from building edges and corners.
+            Typically experiences higher suction than Zone 4 due to flow separation effects.
+        criticalPressure:
+          $ref: '#/components/schemas/CriticalPressure'
+          description: |
+            Critical design pressures (maximum values across all zones).
+            Products must have ratings that meet or exceed these critical values.
+        asce7Version:
+          type: string
+          example: "7-22"
+          description: ASCE 7 standard version used (e.g., "7-22", "7-16")
+        floridaBuildingCodeVersion:
+          type: string
+          example: "2023 FBC"
+          description: |
+            Florida Building Code version applied.
+            Florida often adopts ASCE 7 with state-specific amendments.
+            Examples: "2023 FBC" (based on ASCE 7-22), "2020 FBC" (based on ASCE 7-16)
+        calculatedAt:
+          type: string
+          format: date-time
+          example: "2024-03-15T14:30:00Z"
+          description: ISO 8601 timestamp of when calculation was performed (audit trail)
+        warnings:
+          type: array
+          items:
+            type: string
+          description: |
+            Array of warning messages requiring attention.
+            Examples: HVHZ approval needed, high wind speed verification,
+            topographic analysis required, non-standard input combinations
+          example:
+            - "Building is in HVHZ - ensure products have NOA (Notice of Acceptance) approval"
+            - "High wind speed (140 mph) - verify from current ASCE 7-22 Figure 26.5-1 and HVHZ map"
+
+    IntermediateValues:
+      type: object
+      title: Intermediate Calculation Values
+      description: |
+        Key intermediate values computed during ASCE 7-22 calculation.
+        These values show the steps and can be used to verify calculation accuracy.
+      required:
+        - zoneEndWidth
+        - velocityPressure
+        - exposureCoefficient
+        - directionalityFactor
+        - groundElevationFactor
+      properties:
+        zoneEndWidth:
+          type: number
+          description: |
+            Zone end width "a" in feet.
+            Defines the distance from building edges/corners where Zone 5 applies.
+
+            Per ASCE 7-22 Section 30.3:
+            a = min(0.1 × least horizontal dimension, 0.4 × mean roof height)
+            but not less than 4% of least dimension or 3 feet.
+
+            Within distance "a" from edges/corners: Zone 5 (higher pressures)
+            Beyond distance "a": Zone 4 (lower pressures)
+          example: 8.0
+        velocityPressure:
+          type: number
+          description: |
+            Velocity pressure (qh) in pounds per square foot (psf) at mean roof height.
+
+            Calculated as: qh = 0.613 × Kz × Kzt × Kd × V² × I
+            where:
+            - 0.613 = conversion factor for mph to psf
+            - Kz = exposure coefficient
+            - Kzt = topographic factor
+            - Kd = directionality factor
+            - V = ultimate wind speed
+            - I = importance factor
+
+            This is the base pressure used to determine all component pressures.
+          example: 52.3
+        exposureCoefficient:
+          type: number
+          description: |
+            Exposure coefficient (Kz) at mean roof height.
+            Depends on exposure category (B/C/D) per ASCE 7-22 Table 26.8-1.
+
+            Accounts for how wind speed varies with height based on terrain roughness:
+            - Category B (urban/wooded): lower Kz (wind blocked by buildings/trees)
+            - Category C (open terrain): moderate Kz
+            - Category D (coastal open water): highest Kz (wind flows unimpeded)
+
+            Ranges approximately 0.85–1.05 depending on exposure and height.
+          example: 0.95
+        directionalityFactor:
+          type: number
+          description: |
+            Wind directionality factor (Kd).
+            Per ASCE 7-22 Table 26.6-1, typically 0.85 for buildings.
+
+            Accounts for the probability that the maximum wind speeds come from
+            any horizontal direction. Most buildings use 0.85.
+          example: 0.85
+        groundElevationFactor:
+          type: number
+          description: |
+            Ground elevation factor (Ke).
+            Per ASCE 7-22 Section 26.9. Accounts for elevation above sea level.
+
+            - Value 1.0 for elevations below 2,000 feet (most of Florida)
+            - Increases slightly at higher elevations
+            - Rarely used in Florida (always at sea level or very low elevation)
+          example: 1.0
+
+    ZonePressure:
+      type: object
+      title: Wind Pressure Results for a Zone
+      description: |
+        Wind pressures and loads for a specific pressure zone (Zone 4 or Zone 5).
+        Includes both pressure values (psf) and actual loads (lbf) for the component.
+      required:
+        - positive
+        - negative
+        - loads
+      properties:
+        positive:
+          type: number
+          description: |
+            Positive (inward) pressure in pounds per square foot (psf).
+            Represents inward push on building surface (windward side).
+            Used for design of windows, doors, and cladding on windward side.
+          example: 28.6
+        negative:
+          type: number
+          description: |
+            Negative (outward/suction) pressure in pounds per square foot (psf).
+            Represents outward suction pulling on building surface.
+            Typical on leeward side and roof edges.
+            Often the critical design constraint (higher negative = more severe).
+          example: -42.9
+        loads:
+          type: object
+          required:
+            - positive
+            - negative
+          description: Actual wind loads in pounds-force (lbf) for given effective wind area
+          properties:
+            positive:
+              type: number
+              description: |
+                Positive load in pounds-force (lbf).
+                Calculated as: positive pressure × effective wind area
+                Total inward force component must resist.
+              example: 686.4
+            negative:
+              type: number
+              description: |
+                Negative load in pounds-force (lbf).
+                Calculated as: negative pressure × effective wind area (absolute value)
+                Total outward suction force component must resist.
+              example: -1029.6
+
+    CriticalPressure:
+      type: object
+      title: Critical Design Pressures
+      description: |
+        Maximum (critical) pressures across all zones.
+        Products must have ratings that meet or exceed these critical values.
+        These are the governing pressures for product selection.
+      required:
+        - positive
+        - negative
+      properties:
+        positive:
+          type: number
+          description: |
+            Maximum positive (inward) pressure in psf across all zones.
+            Product positive pressure rating must be ≥ this value to pass design.
+            Example: If critical positive = 31.5 psf, product must be rated ≥ 31.5 psf
+          example: 31.5
+        negative:
+          type: number
+          description: |
+            Maximum negative (outward/suction) pressure magnitude in psf across all zones.
+            Product negative pressure rating (expressed as positive number) must be ≥ this value.
+            Example: If critical negative = 50.2 psf, product must be rated ≥ 50.2 psf (e.g., "–50 psf" or higher)
+          example: 50.2
+
+    ErrorResponse:
+      type: object
+      title: Error Response
+      description: Standard error response format for all endpoints
+      required:
+        - error
+        - message
+        - statusCode
+      properties:
+        error:
+          type: string
+          description: Error type (e.g., "Bad Request", "Validation Error", "Internal Server Error")
+          example: "Validation Error"
+        message:
+          type: string
+          description: Human-readable error message explaining what went wrong
+          example: "ultimateWindSpeed must be between 85 and 300 mph"
+        statusCode:
+          type: integer
+          description: HTTP status code
+          example: 422
+        details:
+          type: object
+          description: Optional detailed error information (field name, constraint, value)
+          properties:
+            field:
+              type: string
+              example: "ultimateWindSpeed"
+            value:
+              description: The value that failed validation
+              example: 50
+            constraint:
+              type: string
+              example: "minimum"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input format or missing required fields
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Validation failed - input values out of range or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  examples:
+    MiamiDadeInputExample:
+      summary: Miami-Dade County entry door (HVHZ)
+      value:
+        county: "Broward"
+        isHVHZ: true
+        ultimateWindSpeed: 140
+        exposureCategory: "B"
+        meanRoofHeight: 20
+        buildingLength: 60
+        buildingWidth: 40
+        effectiveWindArea: 24
+        topographicFactor: 1.0
+        riskCategory: 2
+        address: "123 Main St, Fort Lauderdale, FL 33301"
+
+    TampaInputExample:
+      summary: Hillsborough County window replacement (non-HVHZ)
+      value:
+        county: "Hillsborough"
+        isHVHZ: false
+        ultimateWindSpeed: 115
+        exposureCategory: "B"
+        meanRoofHeight: 25
+        buildingLength: 80
+        buildingWidth: 50
+        effectiveWindArea: 24
+        topographicFactor: 1.0
+        riskCategory: 2
+        address: "456 Oak Ave, Tampa, FL 33602"

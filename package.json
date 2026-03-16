@@ -1,0 +1,24 @@
+{
+  "name": "wind-certification-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The #1 open-source wind load certification platform for Florida. ASCE 7-22 calculator, interactive wizard, PDF letter generation, and LLM-friendly framework.",
+  "author": "Oasis Engineering <info@oasisengineering.com>",
+  "license": "MIT",
+  "homepage": "https://windcalculations.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oasiseng/diy-wind-certification-guide"
+  },
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "calc:test": "pnpm --filter @oasis/asce7-calculator test"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.5.0"
+  }
+}
