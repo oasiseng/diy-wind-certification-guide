@@ -53,6 +53,12 @@ export default function RootLayout({
                     Calculator
                   </a>
                   <a
+                    href="/report"
+                    className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                  >
+                    Wind Load Report
+                  </a>
+                  <a
                     href="#guide"
                     className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
                   >

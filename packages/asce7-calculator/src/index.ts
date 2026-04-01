@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Oasis Engineering — windcalculations.com
+// This file is part of @oasis/asce7-calculator.
+// Commercial license: info@oasisengineering.com
+
 /**
  * @oasis/asce7-calculator
  *
@@ -50,11 +55,25 @@ export {
   GCPI_ENCLOSED,
 } from './formulas';
 
+// Roof C&C formulas
+export { getRoofGCp, calculateRoofPressure } from './roof-formulas';
+export type { RoofZone, RoofType } from './roof-formulas';
+
+// Report generator
+export { generateReport } from './report-calculator';
+export type {
+  Opening,
+  ProjectInput,
+  OpeningResult,
+  ProjectReport,
+} from './report-calculator';
+
 // HVHZ overrides
 export {
   isHVHZCounty,
   getHVHZConfig,
   applyHVHZOverrides,
+  normalizeCounty,
   HVHZ_COUNTIES,
 } from './hvhz-overrides';
 export type { HVHZCountyConfig } from './hvhz-overrides';

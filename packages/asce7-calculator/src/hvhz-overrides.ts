@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Oasis Engineering — windcalculations.com
+// This file is part of @oasis/asce7-calculator.
+// Commercial license: info@oasisengineering.com
+
 /**
  * HVHZ (High-Velocity Hurricane Zone) Overrides
  *
@@ -33,9 +38,9 @@ export const HVHZ_COUNTIES: Record<string, HVHZCountyConfig> = {
     county: 'Miami-Dade',
     isHVHZ: true,
     minimumWindSpeeds: {
-      1: 170,
+      1: 165,
       2: 175,
-      3: 185,
+      3: 186,
       4: 195,
     },
     minimumExposureCategory: 'C',
@@ -46,10 +51,10 @@ export const HVHZ_COUNTIES: Record<string, HVHZCountyConfig> = {
     county: 'Broward',
     isHVHZ: true,
     minimumWindSpeeds: {
-      1: 165,
+      1: 156,
       2: 170,
       3: 180,
-      4: 190,
+      4: 185,
     },
     minimumExposureCategory: 'C',
     notes:
@@ -58,20 +63,48 @@ export const HVHZ_COUNTIES: Record<string, HVHZCountyConfig> = {
 };
 
 /**
+ * Normalize a county name for matching.
+ * Handles common variations: "miami-dade", "Miami Dade", "Miami-Dade County",
+ * "BROWARD", "broward county", etc.
+ */
+export function normalizeCounty(county: string): string | null {
+  const cleaned = county
+    .trim()
+    .toLowerCase()
+    .replace(/\s+county$/i, '')  // strip trailing "county"
+    .replace(/[\s-]+/g, '-');    // normalize spaces/hyphens
+
+  // Map common variations to canonical keys
+  const COUNTY_ALIASES: Record<string, string> = {
+    'miami-dade': 'Miami-Dade',
+    'miamidade': 'Miami-Dade',
+    'miami': 'Miami-Dade',
+    'dade': 'Miami-Dade',
+    'broward': 'Broward',
+  };
+
+  return COUNTY_ALIASES[cleaned] ?? null;
+}
+
+/**
  * Check if a county is in an HVHZ jurisdiction.
+ * Uses normalized matching — accepts "miami-dade", "Miami Dade",
+ * "BROWARD", "broward county", etc.
  */
 export function isHVHZCounty(county: string): boolean {
-  const normalized = county.trim();
-  return normalized in HVHZ_COUNTIES;
+  const canonical = normalizeCounty(county);
+  return canonical !== null && canonical in HVHZ_COUNTIES;
 }
 
 /**
  * Get HVHZ configuration for a county.
  * Returns null if county is not HVHZ.
+ * Uses normalized matching for robust lookup.
  */
 export function getHVHZConfig(county: string): HVHZCountyConfig | null {
-  const normalized = county.trim();
-  return HVHZ_COUNTIES[normalized] ?? null;
+  const canonical = normalizeCounty(county);
+  if (!canonical) return null;
+  return HVHZ_COUNTIES[canonical] ?? null;
 }
 
 /**

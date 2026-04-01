@@ -63,7 +63,7 @@
           "type": "number",
           "minimum": 85,
           "maximum": 300,
-          "description": "Ultimate wind speed (Vult) in miles per hour. 700-year return period wind speed from ASCE 7-22 Figure 26.5-1 (standard areas) or HVHZ map (high-velocity areas). Typical ranges: HVHZ 140–150 mph, non-HVHZ 100–120 mph. Use ASCE Hazard Tool (https://www.ascehazardtool.org) to look up.",
+          "description": "Ultimate wind speed (Vult) in miles per hour. 700-year return period wind speed from ASCE 7-22 Figure 26.5-1 (standard areas) or HVHZ map (high-velocity areas). Typical ranges: HVHZ 140–150 mph, non-HVHZ 100–120 mph. Use ASCE Hazard Tool (hazards.atcouncil.org) to look up.",
           "examples": [140, 120, 115, 130]
         },
         "exposureCategory": {
@@ -307,9 +307,9 @@
       "step": 2,
       "name": "Determine Ultimate Wind Speed (Vult)",
       "description": "Look up 700-year return period wind speed for the location and risk category",
-      "action": "Direct user to ASCE Hazard Tool (https://www.ascehazardtool.org) or county HVHZ map. For HVHZ: typically 140–150 mph. For non-HVHZ: 100–120 mph depending on region.",
+      "action": "Direct user to ASCE Hazard Tool (hazards.atcouncil.org) or county HVHZ map. For HVHZ: typically 140–150 mph. For non-HVHZ: 100–120 mph depending on region.",
       "key_question": "What is the ultimate wind speed for your location?",
-      "tool": "ASCE 7-22 Hazard Tool: https://www.ascehazardtool.org",
+      "tool": "ASCE 7-22 Hazard Tool: https://hazards.atcouncil.org/",
       "why_it_matters": "Vult is the foundation of all pressure calculations. Must be correct per ASCE 7-22 Figure 26.5-1 for the specific location and risk category."
     },
     {
@@ -780,7 +780,7 @@
     "tools_and_calculators": {
       "ASCE_Hazard_Tool": {
         "name": "ASCE 7 Hazard Tool",
-        "url": "https://www.ascehazardtool.org",
+        "url": "https://hazards.atcouncil.org/",
         "description": "Official ASCE wind speed lookup tool. Provides Figure 26.5-1 wind speeds for any U.S. location. Essential for finding Vult."
       },
       "Miami_Dade_PAD": {

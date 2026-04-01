@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Oasis Engineering — windcalculations.com
+// This file is part of @oasis/asce7-calculator.
+// Commercial license: info@oasisengineering.com
+
 /**
  * ASCE 7-22 Wind Pressure Calculator
  *
@@ -38,7 +43,7 @@ import {
   KE_SEA_LEVEL,
 } from './formulas';
 
-import { applyHVHZOverrides } from './hvhz-overrides';
+import { applyHVHZOverrides, isHVHZCounty } from './hvhz-overrides';
 import { validateInput } from './validations';
 
 /**
@@ -60,11 +65,18 @@ export function calculate(input: CalculatorInput): CalculatorOutput {
   const riskCategory = input.riskCategory ?? 2;
   const kzt = input.topographicFactor ?? 1.0;
 
-  // 2. Apply HVHZ overrides if applicable
+  // 2. Apply HVHZ overrides — auto-detect from county even if checkbox missed
   let windSpeed = input.ultimateWindSpeed;
   let exposure = input.exposureCategory;
 
-  if (input.isHVHZ) {
+  const hvhzDetected = isHVHZCounty(input.county);
+  if (hvhzDetected && !input.isHVHZ) {
+    warnings.push(
+      `HVHZ Auto-Detected: ${input.county} is a High-Velocity Hurricane Zone. FBC 2023 overrides applied automatically.`
+    );
+  }
+
+  if (input.isHVHZ || hvhzDetected) {
     const overrides = applyHVHZOverrides(
       input.county,
       windSpeed,
@@ -125,6 +137,12 @@ export function calculate(input: CalculatorInput): CalculatorOutput {
   };
 
   // 10. Add advisory warnings
+  if (kzt > 1.0) {
+    warnings.push(
+      `Topographic factor Kzt = ${kzt}. Per ASCE 7-22 Section 26.8, Kzt must be calculated using the procedure in Chapter 26 for buildings on hills, ridges, or escarpments. Verify that this value has been properly determined per Figure 26.8-1.`
+    );
+  }
+
   if (windSpeed >= 170) {
     warnings.push(
       `High wind speed region (${windSpeed} mph). Ensure all products are rated for hurricane-force winds.`
@@ -138,7 +156,15 @@ export function calculate(input: CalculatorInput): CalculatorOutput {
   }
 
   return {
-    input: { ...input, topographicFactor: kzt, riskCategory },
+    input: {
+      ...input,
+      topographicFactor: kzt,
+      riskCategory,
+      // Return the ADJUSTED values actually used in calculation
+      ultimateWindSpeed: windSpeed,
+      exposureCategory: exposure,
+      isHVHZ: input.isHVHZ || hvhzDetected,
+    },
     intermediate: {
       zoneEndWidth,
       velocityPressure: qh,

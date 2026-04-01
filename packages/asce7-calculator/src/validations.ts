@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Oasis Engineering — windcalculations.com
+// This file is part of @oasis/asce7-calculator.
+// Commercial license: info@oasisengineering.com
+
 /**
  * Input Validation for ASCE 7-22 Calculator
  *
@@ -16,6 +21,7 @@ export function validateInput(input: CalculatorInput): ValidationError[] {
   // Wind speed: ASCE 7-22 maps range from ~95 mph to ~200+ mph for Risk Cat II
   if (
     input.ultimateWindSpeed == null ||
+    !Number.isFinite(input.ultimateWindSpeed) ||
     input.ultimateWindSpeed < 85 ||
     input.ultimateWindSpeed > 300
   ) {
@@ -36,15 +42,18 @@ export function validateInput(input: CalculatorInput): ValidationError[] {
     });
   }
 
-  // Mean roof height: reasonable range for residential/commercial
+  // Mean roof height: Part 1 C&C (Figure 30.3-1) is limited to h ≤ 60 ft.
+  // Buildings taller than 60 ft require Part 3 (Eq. 30.4-1) and a PE seal.
   if (
     input.meanRoofHeight == null ||
+    !Number.isFinite(input.meanRoofHeight) ||
     input.meanRoofHeight < 5 ||
-    input.meanRoofHeight > 200
+    input.meanRoofHeight > 60
   ) {
     errors.push({
       field: 'meanRoofHeight',
-      message: 'Mean roof height must be between 5 and 200 feet.',
+      message:
+        'Mean roof height must be between 5 and 60 feet. This calculator uses ASCE 7-22 Chapter 30 Part 1 (low-rise buildings, h ≤ 60 ft). Buildings taller than 60 ft require Part 3 methods and a PE seal.',
       value: input.meanRoofHeight,
     });
   }
@@ -52,6 +61,7 @@ export function validateInput(input: CalculatorInput): ValidationError[] {
   // Building dimensions
   if (
     input.buildingLength == null ||
+    !Number.isFinite(input.buildingLength) ||
     input.buildingLength < 5 ||
     input.buildingLength > 1000
   ) {
@@ -64,6 +74,7 @@ export function validateInput(input: CalculatorInput): ValidationError[] {
 
   if (
     input.buildingWidth == null ||
+    !Number.isFinite(input.buildingWidth) ||
     input.buildingWidth < 5 ||
     input.buildingWidth > 1000
   ) {
@@ -77,6 +88,7 @@ export function validateInput(input: CalculatorInput): ValidationError[] {
   // Effective wind area
   if (
     input.effectiveWindArea == null ||
+    !Number.isFinite(input.effectiveWindArea) ||
     input.effectiveWindArea < 1 ||
     input.effectiveWindArea > 1000
   ) {
@@ -90,7 +102,7 @@ export function validateInput(input: CalculatorInput): ValidationError[] {
 
   // Topographic factor
   const kzt = input.topographicFactor ?? 1.0;
-  if (kzt < 1.0 || kzt > 3.0) {
+  if (!Number.isFinite(kzt) || kzt < 1.0 || kzt > 3.0) {
     errors.push({
       field: 'topographicFactor',
       message:

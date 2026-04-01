@@ -333,7 +333,7 @@ components:
             - Non-HVHZ coastal: 110–130 mph
             - Non-HVHZ inland: 85–120 mph
 
-            Look up using ASCE Hazard Tool: https://www.ascehazardtool.org
+            Look up using ASCE Hazard Tool: https://hazards.atcouncil.org/
           example: 140
         exposureCategory:
           type: string

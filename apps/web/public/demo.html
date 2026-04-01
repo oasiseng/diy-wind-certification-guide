@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCE 7-22 Wind Load Report Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --primary-blue: #1976D2;
+            --light-blue: #E3F2FD;
+            --danger-red: #D32F2F;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .primary-accent {
+            color: var(--primary-blue);
+            border-color: var(--primary-blue);
+        }
+
+        .primary-bg {
+            background-color: var(--primary-blue);
+        }
+
+        .light-bg {
+            background-color: var(--light-blue);
+        }
+
+        .primary-btn {
+            background-color: var(--primary-blue);
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .primary-btn:hover {
+            background-color: #1565C0;
+        }
+
+        .danger-btn {
+            background-color: var(--danger-red);
+            color: white;
+        }
+
+        .danger-btn:hover {
+            background-color: #C62828;
+        }
+
+        .collapse-section {
+            border: 1px solid #E0E0E0;
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+
+        .collapse-header {
+            background-color: #F5F5F5;
+            padding: 1rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .collapse-header:hover {
+            background-color: #EEEEEE;
+        }
+
+        .collapse-content {
+            padding: 1.5rem;
+            display: none;
+        }
+
+        .collapse-content.active {
+            display: block;
+        }
+
+        .collapse-icon {
+            transition: transform 0.3s;
+        }
+
+        .collapse-icon.rotated {
+            transform: rotate(180deg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: #F5F5F5;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #E0E0E0;
+        }
+
+        td {
+            padding: 0.75rem;
+            border: 1px solid #E0E0E0;
+        }
+
+        tr:nth-child(even) {
+            background-color: #FAFAFA;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #CCCCCC;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+
+        input[type="checkbox"] {
+            width: 1rem;
+            height: 1rem;
+            cursor: pointer;
+        }
+
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .factor-card {
+            background: white;
+            border: 1px solid #E0E0E0;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .factor-card h4 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .factor-card .value {
+            font-size: 1.75rem;
+            font-weight: bold;
+            color: var(--primary-blue);
+        }
+
+        .positive-pressure {
+            color: #1976D2;
+            font-weight: 600;
+        }
+
+        .negative-pressure {
+            color: #D32F2F;
+            font-weight: 600;
+        }
+
+        .warning-box {
+            background-color: #FFF3E0;
+            border-left: 4px solid #F57C00;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 0.25rem;
+        }
+
+        .warning-box h4 {
+            color: #E65100;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .warning-box ul {
+            margin-left: 1.5rem;
+            color: #BF360C;
+        }
+
+        .warning-box li {
+            margin-bottom: 0.25rem;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            #formSection {
+                display: none;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .results-section {
+                page-break-inside: avoid;
+            }
+            table {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="primary-bg text-white py-8 shadow-md">
+        <div class="max-w-7xl mx-auto px-4">
+            <h1 class="text-4xl font-bold">WIND LOAD REPORT GENERATOR</h1>
+            <p class="text-lg mt-2 opacity-90">ASCE 7-22 Components & Cladding</p>
+            <p class="text-sm mt-3 opacity-75">windcalculations.com</p>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Form Section -->
+        <div id="formSection" class="bg-white rounded-lg shadow-md p-8">
+            <!-- Section 1: Project Info -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Project Information</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                        <input type="text" id="projectName" placeholder="e.g., Miami Office Tower">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                        <input type="text" id="address" placeholder="Street address">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">State</label>
+                        <select id="state">
+                            <option value="">Select State</option>
+                            <option value="FL">Florida (FL)</option>
+                            <option value="TX">Texas (TX)</option>
+                            <option value="NC">North Carolina (NC)</option>
+                            <option value="SC">South Carolina (SC)</option>
+                            <option value="LA">Louisiana (LA)</option>
+                            <option value="MS">Mississippi (MS)</option>
+                            <option value="AL">Alabama (AL)</option>
+                            <option value="GA">Georgia (GA)</option>
+                            <option value="VA">Virginia (VA)</option>
+                            <option value="MD">Maryland (MD)</option>
+                            <option value="DE">Delaware (DE)</option>
+                            <option value="NJ">New Jersey (NJ)</option>
+                            <option value="NY">New York (NY)</option>
+                            <option value="MA">Massachusetts (MA)</option>
+                            <option value="CT">Connecticut (CT)</option>
+                            <option value="RI">Rhode Island (RI)</option>
+                            <option value="ME">Maine (ME)</option>
+                            <option value="NH">New Hampshire (NH)</option>
+                            <option value="HI">Hawaii (HI)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">County</label>
+                        <input type="text" id="county" placeholder="e.g., Miami-Dade">
+                    </div>
+                    <div id="hvhzContainer" class="md:col-span-2" style="display: none;">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="hvhz" class="mr-3">
+                            <span class="text-sm font-medium text-gray-700">Located in HVHZ (High Velocity Hurricane Zone)</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Wind Speed (mph)</label>
+                        <input type="number" id="windSpeed" value="115" min="1" step="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Exposure Category</label>
+                        <select id="exposureCategory">
+                            <option value="B">B - Urban/Suburban</option>
+                            <option value="C">C - Open Terrain</option>
+                            <option value="D">D - Exposed Flat Coastal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Mean Roof Height (ft)</label>
+                        <input type="number" id="roofHeight" value="30" min="0" max="60" step="1">
+                        <p class="text-xs text-gray-500 mt-1">Max 60 ft for Part 1 C&C. Buildings over 60 ft require PE seal.</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Building Length (ft)</label>
+                        <input type="number" id="buildingLength" value="60" min="1" step="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Building Width (ft)</label>
+                        <input type="number" id="buildingWidth" value="40" min="1" step="1">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Risk Category</label>
+                        <select id="riskCategory">
+                            <option value="1">I</option>
+                            <option value="2" selected>II (Default)</option>
+                            <option value="3">III</option>
+                            <option value="4">IV</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Enclosure Type</label>
+                        <select id="enclosureType">
+                            <option value="Enclosed">Enclosed</option>
+                            <option value="Partially Enclosed">Partially Enclosed</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2: Openings Table -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Opening Schedule</h2>
+                <div class="overflow-x-auto">
+                    <table id="openingsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 8%;">Mark</th>
+                                <th style="width: 12%;">Type</th>
+                                <th style="width: 10%;">Width (in)</th>
+                                <th style="width: 10%;">Height (in)</th>
+                                <th style="width: 8%;">Floor</th>
+                                <th style="width: 8%;">Zone</th>
+                                <th style="width: 15%;">Manufacturer</th>
+                                <th style="width: 12%;">Model</th>
+                                <th style="width: 8%;">FL#</th>
+                                <th style="width: 8%;">NOA#</th>
+                                <th style="width: 3%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="openingsBody">
+                            <!-- Rows added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="flex gap-2 mt-4">
+                    <button type="button" id="addOpeningBtn" class="primary-btn px-4 py-2 rounded">+ Window</button>
+                    <button type="button" id="addDoorBtn" class="primary-btn px-4 py-2 rounded">+ Door</button>
+                    <button type="button" id="addSlidingBtn" class="primary-btn px-4 py-2 rounded">+ Sliding Door</button>
+                </div>
+            </div>
+
+            <!-- Section 3: Roof C&C (Collapsible) -->
+            <div class="collapse-section mb-8">
+                <div class="collapse-header" onclick="toggleCollapse(this)">
+                    <span>Roof C&C (Components & Cladding)</span>
+                    <span class="collapse-icon">▼</span>
+                </div>
+                <div class="collapse-content">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Roof Type</label>
+                            <select id="roofType">
+                                <option value="Flat">Flat</option>
+                                <option value="Gable ≤7°">Gable ≤ 7°</option>
+                                <option value="Gable 7-20°">Gable 7-20°</option>
+                                <option value="Gable 20-27°">Gable 20-27°</option>
+                                <option value="Gable 27-45°">Gable 27-45°</option>
+                                <option value="Hip 7-20°">Hip 7-20°</option>
+                                <option value="Hip 20-27°">Hip 20-27°</option>
+                                <option value="Monoslope ≤3°">Monoslope ≤ 3°</option>
+                                <option value="Monoslope 3-10°">Monoslope 3-10°</option>
+                                <option value="Monoslope 10-30°">Monoslope 10-30°</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Effective Wind Area (sq ft)</label>
+                            <input type="number" id="roofArea" value="100" min="1" step="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 4: Calculate Button -->
+            <button type="button" id="calculateBtn" class="w-full primary-btn py-3 rounded text-lg font-bold">
+                Calculate & Generate Report
+            </button>
+        </div>
+
+        <!-- Results Section (Initially Hidden) -->
+        <div id="resultsSection" style="display: none;" class="bg-white rounded-lg shadow-md p-8">
+            <button type="button" id="backBtn" class="primary-accent mb-6 text-lg font-semibold hover:underline">
+                ← Back to Form
+            </button>
+
+            <!-- Common Factors -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Common Factors</h2>
+                <div class="card-grid" id="commonFactorsGrid">
+                    <!-- Cards added dynamically -->
+                </div>
+            </div>
+
+            <!-- Opening Schedule Results -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Opening Schedule - Design Pressures</h2>
+                <div class="overflow-x-auto">
+                    <table id="resultsOpeningsTable">
+                        <thead>
+                            <tr>
+                                <th>Mark</th>
+                                <th>Type</th>
+                                <th>Size (W×H)</th>
+                                <th>Area (sq ft)</th>
+                                <th>Zone</th>
+                                <th>+DP (psf)</th>
+                                <th>-DP (psf)</th>
+                                <th>FL#</th>
+                                <th>NOA#</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsOpeningsBody">
+                            <!-- Rows added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Roof Pressures (if applicable) -->
+            <div id="roofPressuresDiv" style="display: none;" class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Roof Pressures - Design Values</h2>
+                <div class="overflow-x-auto">
+                    <table id="roofPressuresTable">
+                        <thead>
+                            <tr>
+                                <th>Zone</th>
+                                <th>+DP (psf)</th>
+                                <th>-DP (psf)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roofPressuresBody">
+                            <!-- Rows added dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Warnings -->
+            <div id="warningsDiv" class="warning-box" style="display: none;">
+                <h4>Warnings & Notes</h4>
+                <ul id="warningsList">
+                    <!-- Warnings added dynamically -->
+                </ul>
+            </div>
+
+            <!-- Print/PDF Buttons -->
+            <div class="flex gap-4 mt-8 no-print">
+                <button type="button" id="printBtn" class="primary-btn px-6 py-3 rounded font-semibold">
+                    Print Report
+                </button>
+                <button type="button" id="pdfBtn" class="primary-btn px-6 py-3 rounded font-semibold">
+                    Generate PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ASCE 7-22 Constants and Tables
+        const KZ_TABLE = [
+            { height: 0, B: 0.57, C: 0.85, D: 1.03 },
+            { height: 15, B: 0.57, C: 0.85, D: 1.03 },
+            { height: 20, B: 0.62, C: 0.90, D: 1.08 },
+            { height: 25, B: 0.66, C: 0.94, D: 1.12 },
+            { height: 30, B: 0.70, C: 0.98, D: 1.16 },
+            { height: 40, B: 0.76, C: 1.04, D: 1.22 },
+            { height: 50, B: 0.81, C: 1.09, D: 1.27 },
+            { height: 60, B: 0.85, C: 1.13, D: 1.31 },
+        ];
+
+        const ROOF_GCP_NEG = {
+            'Flat':              { 1: [-1.3, -0.9], 2: [-2.3, -1.5], 3: [-3.2, -2.2] },
+            'Gable ≤7°':        { 1: [-1.3, -0.9], 2: [-2.3, -1.5], 3: [-3.2, -2.2] },
+            'Gable 7-20°':      { 1: [-1.2, -0.8], 2: [-2.0, -1.3], 3: [-2.8, -1.9] },
+            'Gable 20-27°':     { 1: [-1.3, -0.9], 2: [-2.2, -1.5], 3: [-3.2, -2.2] },
+            'Gable 27-45°':     { 1: [-1.0, -0.7], 2: [-2.3, -1.5], 3: [-3.2, -2.2] },
+            'Hip 7-20°':        { 1: [-1.2, -0.8], 2: [-1.8, -1.2], 3: [-2.5, -1.7] },
+            'Hip 20-27°':       { 1: [-1.5, -1.0], 2: [-2.2, -1.5], 3: [-2.9, -2.0] },
+            'Monoslope ≤3°':    { 1: [-1.3, -0.9], 2: [-2.3, -1.5], 3: [-3.2, -2.2] },
+            'Monoslope 3-10°':  { 1: [-1.5, -1.0], 2: [-2.5, -1.7], 3: [-3.5, -2.4] },
+            'Monoslope 10-30°': { 1: [-1.7, -1.1], 2: [-2.7, -1.8], 3: [-3.8, -2.6] },
+        };
+
+        const ROOF_GCP_POS = {
+            'Flat': 0.3, 'Gable ≤7°': 0.3, 'Gable 7-20°': 0.3, 'Gable 20-27°': 0.3,
+            'Gable 27-45°': 0.8, 'Hip 7-20°': 0.3, 'Hip 20-27°': 0.5,
+            'Monoslope ≤3°': 0.3, 'Monoslope 3-10°': 0.4, 'Monoslope 10-30°': 0.5,
+        };
+
+        // Wall GCp values (for zone 4 and 5, negative and positive)
+        const WALL_GCP = {
+            4: { neg: { min: -1.1, max: -0.85 }, pos: { min: 1.0, max: 0.7 } },
+            5: { neg: { min: -1.4, max: -1.0 }, pos: { min: 1.0, max: 0.7 } },
+        };
+
+        // Opening counters by type prefix
+        const openingCounters = { W: 0, D: 0, SL: 0, SF: 0, FW: 0, CW: 0 };
+        const TYPE_PREFIX = {
+            'Window': 'W', 'Door': 'D', 'Sliding Door': 'SL',
+            'Storefront': 'SF', 'Fixed Window': 'FW', 'Curtain Wall': 'CW'
+        };
+        const TYPE_DEFAULTS = {
+            'Window': { w: 36, h: 48 }, 'Door': { w: 36, h: 80 },
+            'Sliding Door': { w: 72, h: 80 }, 'Storefront': { w: 60, h: 84 },
+            'Fixed Window': { w: 48, h: 48 }, 'Curtain Wall': { w: 60, h: 96 }
+        };
+
+        // HVHZ county normalization (mirrors TypeScript engine)
+        function normalizeCounty(county) {
+            const cleaned = county.trim().toLowerCase()
+                .replace(/\s+county$/i, '')
+                .replace(/[\s-]+/g, '-');
+            const aliases = {
+                'miami-dade': 'Miami-Dade', 'miamidade': 'Miami-Dade',
+                'miami': 'Miami-Dade', 'dade': 'Miami-Dade', 'broward': 'Broward'
+            };
+            return aliases[cleaned] || null;
+        }
+
+        const HVHZ_COUNTIES = {
+            'Miami-Dade': { 1: 165, 2: 175, 3: 186, 4: 195, minExposure: 'C' },
+            'Broward': { 1: 156, 2: 170, 3: 180, 4: 185, minExposure: 'C' }
+        };
+
+        /** Sanitize user text to prevent XSS in innerHTML */
+        function esc(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupEventListeners();
+            addOpening('Window');
+        });
+
+        function setupEventListeners() {
+            document.getElementById('calculateBtn').addEventListener('click', calculate);
+            document.getElementById('backBtn').addEventListener('click', backToForm);
+            document.getElementById('printBtn').addEventListener('click', printReport);
+            document.getElementById('pdfBtn').addEventListener('click', generatePDF);
+            document.getElementById('state').addEventListener('change', function() {
+                const hvhzContainer = document.getElementById('hvhzContainer');
+                hvhzContainer.style.display = this.value === 'FL' ? 'block' : 'none';
+            });
+            // County auto-detect for HVHZ
+            document.getElementById('county').addEventListener('input', function() {
+                const canonical = normalizeCounty(this.value);
+                const hvhzCheckbox = document.getElementById('hvhz');
+                const hvhzContainer = document.getElementById('hvhzContainer');
+                if (canonical && HVHZ_COUNTIES[canonical]) {
+                    hvhzCheckbox.checked = true;
+                    hvhzContainer.style.display = 'block';
+                }
+            });
+            // Add opening buttons
+            document.getElementById('addOpeningBtn').addEventListener('click', () => addOpening('Window'));
+            const addDoorBtn = document.getElementById('addDoorBtn');
+            if (addDoorBtn) addDoorBtn.addEventListener('click', () => addOpening('Door'));
+            const addSlidingBtn = document.getElementById('addSlidingBtn');
+            if (addSlidingBtn) addSlidingBtn.addEventListener('click', () => addOpening('Sliding Door'));
+        }
+
+        function toggleCollapse(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.collapse-icon');
+            content.classList.toggle('active');
+            icon.classList.toggle('rotated');
+        }
+
+        function addOpening(type) {
+            type = type || 'Window';
+            const prefix = TYPE_PREFIX[type] || 'W';
+            openingCounters[prefix] = (openingCounters[prefix] || 0) + 1;
+            const mark = prefix + '-' + openingCounters[prefix];
+            const dims = TYPE_DEFAULTS[type] || { w: 36, h: 48 };
+
+            const row = document.createElement('tr');
+            const typeOptions = ['Window', 'Door', 'Sliding Door', 'Storefront', 'Fixed Window', 'Curtain Wall']
+                .map(t => '<option' + (t === type ? ' selected' : '') + '>' + t + '</option>').join('');
+
+            row.innerHTML =
+                '<td><input type="text" value="' + esc(mark) + '" readonly class="opening-mark bg-gray-100"></td>' +
+                '<td><select class="opening-type">' + typeOptions + '</select></td>' +
+                '<td><input type="number" class="opening-width" value="' + dims.w + '" min="1" step="1"></td>' +
+                '<td><input type="number" class="opening-height" value="' + dims.h + '" min="1" step="1"></td>' +
+                '<td><input type="number" class="opening-floor" value="1" min="1" step="1"></td>' +
+                '<td><select class="opening-zone"><option value="4">4</option><option value="5">5</option></select></td>' +
+                '<td><input type="text" class="opening-manufacturer" placeholder="Manufacturer"></td>' +
+                '<td><input type="text" class="opening-model" placeholder="Model"></td>' +
+                '<td><input type="text" class="opening-fl" placeholder="FL#"></td>' +
+                '<td><input type="text" class="opening-noa" placeholder="NOA#"></td>' +
+                '<td><button type="button" class="danger-btn px-2 py-1 rounded remove-btn">\u00d7</button></td>';
+
+            document.getElementById('openingsBody').appendChild(row);
+            row.querySelector('.remove-btn').addEventListener('click', function() {
+                row.remove();
+            });
+            // Auto-update mark when type changes
+            row.querySelector('.opening-type').addEventListener('change', function() {
+                const newType = this.value;
+                const newPrefix = TYPE_PREFIX[newType] || 'W';
+                openingCounters[newPrefix] = (openingCounters[newPrefix] || 0) + 1;
+                row.querySelector('.opening-mark').value = newPrefix + '-' + openingCounters[newPrefix];
+            });
+        }
+
+        function getKz(height, exposure) {
+            const category = exposure;
+            let lower = KZ_TABLE[0];
+            let upper = KZ_TABLE[0];
+
+            for (let i = 0; i < KZ_TABLE.length - 1; i++) {
+                if (height >= KZ_TABLE[i].height && height <= KZ_TABLE[i + 1].height) {
+                    lower = KZ_TABLE[i];
+                    upper = KZ_TABLE[i + 1];
+                    break;
+                }
+            }
+
+            if (height >= KZ_TABLE[KZ_TABLE.length - 1].height) {
+                return KZ_TABLE[KZ_TABLE.length - 1][category];
+            }
+
+            const h1 = lower.height;
+            const h2 = upper.height;
+            const k1 = lower[category];
+            const k2 = upper[category];
+
+            if (h2 === h1) return k1;
+            return k1 + (k2 - k1) * (height - h1) / (h2 - h1);
+        }
+
+        function logInterpolate(area, min10, max500) {
+            if (area <= 10) return min10;
+            if (area >= 500) return max500;
+            const ln10 = Math.log(10);
+            const ln500 = Math.log(500);
+            const lnA = Math.log(area);
+            return min10 + (max500 - min10) * (lnA - ln10) / (ln500 - ln10);
+        }
+
+        function getWallGCp(zone, area, isPositive) {
+            const zoneData = WALL_GCP[zone];
+            const data = isPositive ? zoneData.pos : zoneData.neg;
+            return logInterpolate(area, data.min, data.max);
+        }
+
+        function getRoofGCp(roofType, zone, area, isPositive) {
+            if (isPositive) {
+                return ROOF_GCP_POS[roofType];
+            }
+            const zones = ROOF_GCP_NEG[roofType];
+            const [min10, max500] = zones[zone];
+            return logInterpolate(area, min10, max500);
+        }
+
+        function getGCpi(enclosureType) {
+            if (enclosureType === 'Enclosed') return 0.18;
+            if (enclosureType === 'Partially Enclosed') return 0.55;
+            return 0.18;
+        }
+
+        function calculate() {
+            // Collect form data
+            const projectName = document.getElementById('projectName').value;
+            const address = document.getElementById('address').value;
+            const state = document.getElementById('state').value;
+            const county = document.getElementById('county').value;
+            let windSpeed = parseFloat(document.getElementById('windSpeed').value);
+            let exposure = document.getElementById('exposureCategory').value;
+            const roofHeight = parseFloat(document.getElementById('roofHeight').value);
+            const buildingLength = parseFloat(document.getElementById('buildingLength').value);
+            const buildingWidth = parseFloat(document.getElementById('buildingWidth').value);
+            const riskCategory = parseInt(document.getElementById('riskCategory').value) || 2;
+            const enclosureType = document.getElementById('enclosureType').value;
+            const roofType = document.getElementById('roofType').value;
+            const roofArea = parseFloat(document.getElementById('roofArea').value);
+
+            // NaN validation
+            const numericChecks = [
+                ['Wind Speed', windSpeed, 85, 300],
+                ['Roof Height', roofHeight, 5, 60],
+                ['Building Length', buildingLength, 5, 1000],
+                ['Building Width', buildingWidth, 5, 1000]
+            ];
+            for (const [name, val, min, max] of numericChecks) {
+                if (!Number.isFinite(val) || val < min || val > max) {
+                    alert(name + ' must be a number between ' + min + ' and ' + max + '.');
+                    return;
+                }
+            }
+
+            // HVHZ auto-detection and overrides
+            const hvhzWarnings = [];
+            const canonical = normalizeCounty(county);
+            const isHVHZ = document.getElementById('hvhz').checked || (canonical && HVHZ_COUNTIES[canonical]);
+
+            if (isHVHZ && canonical && HVHZ_COUNTIES[canonical]) {
+                const hvhzConfig = HVHZ_COUNTIES[canonical];
+                const minSpeed = hvhzConfig[riskCategory];
+                if (minSpeed && windSpeed < minSpeed) {
+                    hvhzWarnings.push('HVHZ Override: Wind speed increased from ' + windSpeed + ' to ' + minSpeed + ' mph per FBC 2023 Section 1620.2 (' + canonical + ' County, Risk Category ' + riskCategory + ').');
+                    windSpeed = minSpeed;
+                }
+                const exposureRank = { B: 1, C: 2, D: 3 };
+                if (exposureRank[exposure] < exposureRank[hvhzConfig.minExposure]) {
+                    hvhzWarnings.push('HVHZ Override: Exposure changed from ' + exposure + ' to ' + hvhzConfig.minExposure + ' per FBC 2023 Section 1620.3.');
+                    exposure = hvhzConfig.minExposure;
+                }
+                hvhzWarnings.push('HVHZ Location: ' + canonical + ' County. Products require Miami-Dade NOA or FL Product Approval with HVHZ compliance.');
+            }
+
+            // Calculate common factors
+            const Kd = 0.85;
+            const Ke = 1.0;
+            const Kzt = 1.0;
+            const Kz = getKz(roofHeight, exposure);
+            const qh = 0.00256 * Kz * Kzt * Kd * Ke * (windSpeed * windSpeed);
+            const GCpi = getGCpi(enclosureType);
+
+            // Calculate zone end width 'a'
+            const leastDim = Math.min(buildingLength, buildingWidth);
+            const a = Math.max(
+                Math.min(0.1 * leastDim, 0.4 * roofHeight),
+                Math.max(0.04 * leastDim, 3)
+            );
+
+            // Collect opening data with per-opening NaN validation
+            const openingsData = [];
+            let openingError = false;
+            document.querySelectorAll('#openingsBody tr').forEach((row, idx) => {
+                const mark = row.querySelector('.opening-mark').value;
+                const type = row.querySelector('.opening-type').value;
+                const width = parseFloat(row.querySelector('.opening-width').value);
+                const height = parseFloat(row.querySelector('.opening-height').value);
+                const floor = parseInt(row.querySelector('.opening-floor').value);
+                const zone = parseInt(row.querySelector('.opening-zone').value);
+                const manufacturer = row.querySelector('.opening-manufacturer').value;
+                const model = row.querySelector('.opening-model').value;
+                const fl = row.querySelector('.opening-fl').value;
+                const noa = row.querySelector('.opening-noa').value;
+
+                if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+                    alert('Opening ' + mark + ': Width and height must be positive numbers.');
+                    openingError = true;
+                    return;
+                }
+
+                const area = (width / 12) * (height / 12);
+                const gcpPos = getWallGCp(zone, area, true);
+                const gcpNeg = getWallGCp(zone, area, false);
+
+                // Design pressures
+                const dpPos = qh * (gcpPos + GCpi);
+                const dpNeg = qh * (gcpNeg - GCpi);
+
+                openingsData.push({
+                    mark, type, width, height, floor, zone, manufacturer, model, fl, noa,
+                    area: area.toFixed(2),
+                    dpPos: dpPos.toFixed(1),
+                    dpNeg: dpNeg.toFixed(1)
+                });
+            });
+            if (openingError) return;
+            if (openingsData.length === 0) {
+                alert('Please add at least one opening.');
+                return;
+            }
+
+            // Calculate roof pressures for all 3 zones
+            const roofZones = {};
+            [1, 2, 3].forEach(zone => {
+                const gcpPos = getRoofGCp(roofType, zone, roofArea, true);
+                const gcpNeg = getRoofGCp(roofType, zone, roofArea, false);
+                // Worst case of both ±GCpi load cases
+                const posCase1 = qh * (gcpPos + GCpi);
+                const posCase2 = qh * (gcpPos - GCpi);
+                const negCase1 = qh * (gcpNeg - GCpi);
+                const negCase2 = qh * (gcpNeg + GCpi);
+                roofZones[zone] = {
+                    positive: Math.max(posCase1, posCase2),
+                    negative: Math.min(negCase1, negCase2)
+                };
+            });
+
+            // Warnings (HVHZ warnings already collected above)
+            const warnings = [...hvhzWarnings];
+            if (Kzt > 1.0) {
+                warnings.push('Kzt > 1.0: Verify topographic factor per ASCE 7-22 Section 26.8, Figure 26.8-1.');
+            }
+            if (enclosureType === 'Partially Enclosed') {
+                warnings.push('Partially Enclosed buildings use higher internal pressure (GCpi = \u00b10.55). Verify building classification per ASCE 7-22 Section 26.2.');
+            }
+
+            // Display results
+            displayResults({
+                projectName, address, state, county, windSpeed, exposure, roofHeight,
+                buildingLength, buildingWidth, enclosureType, roofType, roofArea,
+                Kd, Kz, Kzt, Ke, qh, GCpi, a,
+                openingsData, roofZones, warnings
+            });
+        }
+
+        function displayResults(data) {
+            // Hide form, show results
+            document.getElementById('formSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+
+            // Common factors grid
+            const factorCards = [
+                { name: 'Kd (Directionality)', value: data.Kd.toFixed(3) },
+                { name: 'Kz (Exposure)', value: data.Kz.toFixed(3) },
+                { name: 'Kzt (Topography)', value: data.Kzt.toFixed(3) },
+                { name: 'Ke (Elevation)', value: data.Ke.toFixed(3) },
+                { name: 'qh (Velocity Pressure)', value: data.qh.toFixed(2) + ' psf' },
+                { name: 'GCpi (Internal)', value: '±' + data.GCpi.toFixed(2) },
+                { name: "Zone End Width 'a'", value: data.a.toFixed(2) + ' ft' }
+            ];
+
+            const gridHtml = factorCards.map(card => `
+                <div class="factor-card">
+                    <h4>${card.name}</h4>
+                    <div class="value">${card.value}</div>
+                </div>
+            `).join('');
+            document.getElementById('commonFactorsGrid').innerHTML = gridHtml;
+
+            // Openings table (all user fields escaped to prevent XSS)
+            const openingsHtml = data.openingsData.map(op =>
+                '<tr>' +
+                '<td>' + esc(op.mark) + '</td>' +
+                '<td>' + esc(op.type) + '</td>' +
+                '<td>' + esc(op.width + '" \u00d7 ' + op.height + '"') + '</td>' +
+                '<td>' + esc(op.area) + '</td>' +
+                '<td>' + esc(String(op.zone)) + '</td>' +
+                '<td><span class="positive-pressure">+' + esc(op.dpPos) + '</span></td>' +
+                '<td><span class="negative-pressure">' + esc(op.dpNeg) + '</span></td>' +
+                '<td>' + esc(op.fl || '\u2014') + '</td>' +
+                '<td>' + esc(op.noa || '\u2014') + '</td>' +
+                '</tr>'
+            ).join('');
+            document.getElementById('resultsOpeningsBody').innerHTML = openingsHtml;
+
+            // Roof pressures — all 3 zones with correct labels
+            const roofDiv = document.getElementById('roofPressuresDiv');
+            roofDiv.style.display = 'block';
+            const roofLabels = {
+                1: '1 (Field/Interior)',
+                2: '2 (Edge/Ridge)',
+                3: '3 (Corner)'
+            };
+            const roofHtml = [1, 2, 3].map(zone => `
+                <tr>
+                    <td>${roofLabels[zone]}</td>
+                    <td><span class="positive-pressure">+${data.roofZones[zone].positive.toFixed(1)}</span></td>
+                    <td><span class="negative-pressure">${data.roofZones[zone].negative.toFixed(1)}</span></td>
+                </tr>
+            `).join('');
+            document.getElementById('roofPressuresBody').innerHTML = roofHtml;
+
+            // Warnings (escaped)
+            if (data.warnings.length > 0) {
+                document.getElementById('warningsDiv').style.display = 'block';
+                const warningsHtml = data.warnings.map(w => '<li>' + esc(w) + '</li>').join('');
+                document.getElementById('warningsList').innerHTML = warningsHtml;
+            } else {
+                document.getElementById('warningsDiv').style.display = 'none';
+            }
+        }
+
+        function backToForm() {
+            document.getElementById('formSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        function generatePDF() {
+            const printWindow = window.open('', '', 'height=800,width=900');
+            const resultsHtml = document.getElementById('resultsSection').innerHTML;
+            const fullHtml = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>ASCE 7-22 Wind Load Report</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        h1, h2 { color: #1976D2; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+                        th { background-color: #f5f5f5; }
+                        .factor-card { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+                        .positive-pressure { color: #1976D2; font-weight: bold; }
+                        .negative-pressure { color: #D32F2F; font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <h1>ASCE 7-22 Wind Load Report</h1>
+                    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+                    ${resultsHtml}
+                </body>
+                </html>
+            `;
+            printWindow.document.write(fullHtml);
+            printWindow.document.close();
+            printWindow.onload = function() { printWindow.print(); };
+        }
+    </script>
+</body>
+</html>

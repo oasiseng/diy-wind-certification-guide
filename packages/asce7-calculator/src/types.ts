@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Oasis Engineering — windcalculations.com
+// This file is part of @oasis/asce7-calculator.
+// Commercial license: info@oasisengineering.com
+
 /**
  * ASCE 7-22 Wind Pressure Calculator Types
  *

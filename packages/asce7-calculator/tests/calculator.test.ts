@@ -129,7 +129,27 @@ describe('ASCE 7-22 Calculator', () => {
 
     it('overrides wind speed for Miami-Dade Risk Cat II', () => {
       const result = applyHVHZOverrides('Miami-Dade', 160, 'C', 2);
-      expect(result.windSpeed).toBe(175); // FBC minimum
+      expect(result.windSpeed).toBe(175); // FBC 2023 Section 1620.2
+    });
+
+    it('overrides wind speed for Miami-Dade Risk Cat I to 165 mph', () => {
+      const result = applyHVHZOverrides('Miami-Dade', 100, 'C', 1);
+      expect(result.windSpeed).toBe(165); // FBC 2023 Section 1620.2
+    });
+
+    it('overrides wind speed for Miami-Dade Risk Cat III to 186 mph', () => {
+      const result = applyHVHZOverrides('Miami-Dade', 100, 'C', 3);
+      expect(result.windSpeed).toBe(186); // FBC 2023 Section 1620.2
+    });
+
+    it('overrides wind speed for Broward Risk Cat I to 156 mph', () => {
+      const result = applyHVHZOverrides('Broward', 100, 'C', 1);
+      expect(result.windSpeed).toBe(156); // FBC 2023 Section 1620.2
+    });
+
+    it('overrides wind speed for Broward Risk Cat IV to 185 mph', () => {
+      const result = applyHVHZOverrides('Broward', 100, 'C', 4);
+      expect(result.windSpeed).toBe(185); // FBC 2023 Section 1620.2
     });
 
     it('overrides exposure B to C for Broward', () => {

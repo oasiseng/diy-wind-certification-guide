@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Oasis Engineering — windcalculations.com
+// This file is part of @oasis/asce7-calculator.
+// Commercial license: info@oasisengineering.com
+
 /**
  * ASCE 7-22 Wind Pressure Formulas
  *
@@ -194,7 +199,10 @@ export function calculateZoneEndWidth(
  * Interpolate GCp (external pressure coefficient) from the
  * ASCE 7-22 Figure 30.3-1 tables.
  *
- * Interpolation is on log10(A) between table entries.
+ * Interpolation is logarithmic between table entries.
+ * Uses natural log (ln) for consistency with roof-formulas.ts.
+ * Note: log base does not affect the interpolation result since
+ * the fraction ln(A/A1)/ln(A2/A1) = log10(A/A1)/log10(A2/A1).
  */
 function interpolateGCp(
   area: number,
@@ -213,10 +221,10 @@ function interpolateGCp(
     if (clampedArea >= table[i].area && clampedArea <= table[i + 1].area) {
       if (table[i].area === table[i + 1].area) return table[i][key];
 
-      // Log-linear interpolation
-      const logA = Math.log10(clampedArea);
-      const logA1 = Math.log10(table[i].area);
-      const logA2 = Math.log10(table[i + 1].area);
+      // Logarithmic interpolation using natural log
+      const logA = Math.log(clampedArea);
+      const logA1 = Math.log(table[i].area);
+      const logA2 = Math.log(table[i + 1].area);
       const fraction = (logA - logA1) / (logA2 - logA1);
 
       return table[i][key] + fraction * (table[i + 1][key] - table[i][key]);
