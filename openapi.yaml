@@ -355,9 +355,9 @@ components:
         meanRoofHeight:
           type: number
           minimum: 5
-          maximum: 200
+          maximum: 60
           description: |
-            Mean roof height in feet.
+            Mean roof height in feet (max 60 ft for Chapter 30 Part 1 low-rise C&C).
             Height to the eave (lower edge of roof) or average ridge height.
             Measured from the lowest point of building at grade.
 
@@ -407,14 +407,14 @@ components:
         topographicFactor:
           type: number
           default: 1.0
-          minimum: 0.8
-          maximum: 1.2
+          minimum: 1.0
+          maximum: 3.0
           description: |
             Topographic factor (Kzt) per ASCE 7-22 Section 26.8.
             Accounts for wind speed-up effects over hills, ridges, and escarpments.
 
             Default: 1.0 (flat terrain, no wind speed-up effect)
-            Range: 1.0 (no effect) to 1.2 (maximum wind speed-up)
+            Range: 1.0 (no effect) to 3.0 (extreme topographic speed-up)
 
             Use Kzt > 1.0 ONLY if building is located on summit or upper half of
             isolated hill, ridge, or escarpment with documented topographic analysis.
@@ -550,14 +550,14 @@ components:
           description: |
             Velocity pressure (qh) in pounds per square foot (psf) at mean roof height.
 
-            Calculated as: qh = 0.613 × Kz × Kzt × Kd × V² × I
+            Calculated as: qh = 0.00256 × Kz × Kzt × Kd × Ke × V²
             where:
-            - 0.613 = conversion factor for mph to psf
+            - 0.00256 = conversion factor for mph to psf (US customary units)
             - Kz = exposure coefficient
             - Kzt = topographic factor
-            - Kd = directionality factor
+            - Kd = directionality factor (0.85 for C&C)
+            - Ke = ground elevation factor
             - V = ultimate wind speed
-            - I = importance factor
 
             This is the base pressure used to determine all component pressures.
           example: 52.3

@@ -63,9 +63,9 @@ export const calculatorInputSchema = {
     meanRoofHeight: {
       type: 'number',
       description:
-        'Mean roof height in feet. This is the height to the eave (lower edge) of the roof or the average of the roof ridge heights. Measured from the lowest point of the building at grade to the eave or roof ridge. For pitched roofs, use the average height at the eave. For flat roofs, use the height to the roof edge. Minimum 5 feet, maximum 200 feet. Used to determine velocity pressure (qh) per ASCE 7-22 Section 26.10.',
+        'Mean roof height in feet. This is the height to the eave (lower edge) of the roof or the average of the roof ridge heights. Measured from the lowest point of the building at grade to the eave or roof ridge. For pitched roofs, use the average height at the eave. For flat roofs, use the height to the roof edge. Minimum 5 feet, maximum 60 feet (Chapter 30 Part 1 low-rise limit). Used to determine velocity pressure (qh) per ASCE 7-22 Section 26.10.',
       minimum: 5,
-      maximum: 200,
+      maximum: 60,
       examples: [20, 30, 45],
     },
 
@@ -99,11 +99,11 @@ export const calculatorInputSchema = {
     topographicFactor: {
       type: 'number',
       description:
-        'Topographic factor (Kzt) per ASCE 7-22 Section 26.8. Accounts for wind speed-up over hills, ridges, and escarpments. Default value is 1.0 for flat terrain. Use Kzt > 1.0 only if the building is located on the summit or upper half of an isolated hill, ridge, or escarpment where the slope exceeds certain thresholds. Values typically range from 1.0 (no effect) to 1.2 (maximum wind speed-up). Most locations use 1.0. Consult ASCE 7-22 Section 26.8 for detailed guidance.',
+        'Topographic factor (Kzt) per ASCE 7-22 Section 26.8. Accounts for wind speed-up over hills, ridges, and escarpments. Default value is 1.0 for flat terrain. Use Kzt > 1.0 only if the building is located on the summit or upper half of an isolated hill, ridge, or escarpment where the slope exceeds certain thresholds. Values typically range from 1.0 (no effect) to 3.0 (extreme topographic speed-up). Most locations use 1.0. Consult ASCE 7-22 Section 26.8 for detailed guidance.',
       default: 1.0,
-      minimum: 0.8,
-      maximum: 1.2,
-      examples: [1.0, 1.05, 1.1],
+      minimum: 1.0,
+      maximum: 3.0,
+      examples: [1.0, 1.05, 1.5],
     },
 
     riskCategory: {

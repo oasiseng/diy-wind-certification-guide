@@ -157,7 +157,7 @@ export function ResultsStep({ formData, onCalculationComplete, onBack }: Results
                 <div className="bg-white rounded p-3">
                   <div className="text-xs font-semibold text-gray-700">Negative Pressure</div>
                   <div className="text-lg font-bold text-red-600">
-                    -{result.zone4.negative.toFixed(2)} psf
+                    {result.zone4.negative.toFixed(2)} psf
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
                     Load: {result.zone4.loads.negative.toFixed(0)} lbf
@@ -185,7 +185,7 @@ export function ResultsStep({ formData, onCalculationComplete, onBack }: Results
                 <div className="bg-white rounded p-3">
                   <div className="text-xs font-semibold text-gray-700">Negative Pressure</div>
                   <div className="text-lg font-bold text-red-600">
-                    -{result.zone5.negative.toFixed(2)} psf
+                    {result.zone5.negative.toFixed(2)} psf
                   </div>
                   <div className="text-xs text-gray-600 mt-1">
                     Load: {result.zone5.loads.negative.toFixed(0)} lbf

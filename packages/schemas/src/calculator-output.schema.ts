@@ -108,7 +108,7 @@ export const calculatorOutputSchema = {
         velocityPressure: {
           type: 'number',
           description:
-            'Velocity pressure (qh) in pounds per square foot at mean roof height. Calculated as qh = 0.613 × Kz × Kzt × Kd × V² × I per ASCE 7-22 Section 26.10. This is the base pressure used to determine all component pressures.',
+            'Velocity pressure (qh) in pounds per square foot at mean roof height. Calculated as qh = 0.00256 × Kz × Kzt × Kd × Ke × V² per ASCE 7-22 Section 26.10. This is the base pressure used to determine all component pressures.',
         },
 
         exposureCoefficient: {

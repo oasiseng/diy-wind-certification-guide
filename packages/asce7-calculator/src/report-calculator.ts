@@ -222,10 +222,10 @@ export function generateReport(input: ProjectInput): ProjectReport {
     );
   }
 
-  // Mean roof height advisory
+  // Mean roof height hard limit — Chapter 30 Part 1 is only valid for h ≤ 60 ft
   if (input.meanRoofHeight > 60) {
-    warnings.push(
-      `Mean roof height (${input.meanRoofHeight} ft) exceeds 60 ft. This calculator uses ASCE 7-22 Chapter 30 Part 1 (h ≤ 60 ft). Buildings taller than 60 ft require Part 3 methods and a licensed PE seal.`
+    throw new Error(
+      `Mean roof height (${input.meanRoofHeight} ft) exceeds the 60 ft limit for ASCE 7-22 Chapter 30 Part 1 (low-rise C&C). Buildings taller than 60 ft require Part 3 methods and a licensed PE seal. Contact info@oasisengineering.com for a sealed engineering package.`
     );
   }
 
