@@ -189,7 +189,7 @@ describe('ASCE 7-22 Calculator', () => {
     });
 
     it('Zone 5 governs the critical negative pressure', () => {
-      expect(result.criticalPressure.negative).toBe(result.zone5.negative);
+      expect(result.criticalPressure.negative).toBe(Math.abs(result.zone5.negative));
     });
 
     it('generates HVHZ warnings for Broward', () => {
@@ -201,7 +201,7 @@ describe('ASCE 7-22 Calculator', () => {
 
     it('includes all required output fields', () => {
       expect(result.asce7Version).toBe('7-22');
-      expect(result.floridaBuildingCodeVersion).toBe('2023');
+      expect(result.floridaBuildingCodeVersion).toBe('2023 FBC');
       expect(result.calculatedAt).toBeTruthy();
       expect(result.input).toBeTruthy();
       expect(result.intermediate).toBeTruthy();

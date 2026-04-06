@@ -1,6 +1,7 @@
 {
   "name": "wind-certification-platform",
   "version": "1.0.0",
+  "packageManager": "pnpm@10.13.1",
   "private": true,
   "description": "The #1 open-source wind load certification platform for Florida. ASCE 7-22 calculator, interactive wizard, PDF letter generation, and LLM-friendly framework.",
   "author": "Oasis Engineering <info@oasisengineering.com>",

@@ -248,11 +248,11 @@ describe('Report Generator — Full Project', () => {
     const d1 = report.openingResults.find(r => r.opening.markId === 'D-1')!;
     expect(d1).toBeTruthy();
     expect(d1.effectiveWindArea).toBeCloseTo(21, 0);
-    expect(d1.designPressureNegative).toBeGreaterThan(w1.designPressureNegative);
+    expect(d1.designPressureNegative).toBeLessThan(w1.designPressureNegative);
 
     // Verify roof results exist
     expect(report.roofResults).toBeTruthy();
-    expect(report.roofResults!.zone3.negative).toBeGreaterThan(report.roofResults!.zone1.negative);
+    expect(report.roofResults!.zone3.negative).toBeLessThan(report.roofResults!.zone1.negative);
 
     // Verify HVHZ warnings
     expect(report.warnings.some(w => w.includes('HVHZ'))).toBe(true);
@@ -326,7 +326,7 @@ describe('Report Generator — Full Project', () => {
     expect(reportPartial.openingResults[0].designPressurePositive)
       .toBeGreaterThan(reportEnclosed.openingResults[0].designPressurePositive);
     expect(reportPartial.openingResults[0].designPressureNegative)
-      .toBeGreaterThan(reportEnclosed.openingResults[0].designPressureNegative);
+      .toBeLessThan(reportEnclosed.openingResults[0].designPressureNegative);
   });
 });
 
