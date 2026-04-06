@@ -256,16 +256,15 @@ export function getGCp(
  *   p = qh × [(GCp) - (GCpi)]   (positive pressure, inward)
  *   p = qh × [(GCp) + (GCpi)]   (negative pressure, outward — note: GCp is negative)
  *
- * For positive (inward) pressure:
- *   p+ = qh × (GCp+ + GCpi)
- *
- * For negative (outward) pressure:
- *   p- = qh × (GCp- - GCpi)
+ * For design, both ±GCpi load cases should be evaluated and the
+ * governing (worst) values reported:
+ *   p+ = max[qh × (GCp+ + GCpi), qh × (GCp+ - GCpi)]
+ *   p- = min[qh × (GCp- - GCpi), qh × (GCp- + GCpi)]
  *
  * @param qh   - Velocity pressure in psf
  * @param gcpPositive - External positive pressure coefficient
  * @param gcpNegative - External negative pressure coefficient
- * @param gcpi - Internal pressure coefficient (0.18 for enclosed)
+ * @param gcpi - Internal pressure coefficient magnitude (e.g., 0.18 enclosed, 0.55 partially enclosed)
  * @returns Pressure in psf { positive, negative }
  */
 export function calculateDesignPressure(
@@ -274,11 +273,14 @@ export function calculateDesignPressure(
   gcpNegative: number,
   gcpi: number = GCPI_ENCLOSED
 ): { positive: number; negative: number } {
-  // Positive (inward): external positive + internal suction
-  const positive = qh * (gcpPositive + gcpi);
+  // Evaluate both ±GCpi load cases and keep governing design values.
+  const positiveCase1 = qh * (gcpPositive + gcpi);
+  const positiveCase2 = qh * (gcpPositive - gcpi);
+  const positive = Math.max(positiveCase1, positiveCase2);
 
-  // Negative (outward): external suction - internal pressure
-  const negative = qh * (gcpNegative - gcpi);
+  const negativeCase1 = qh * (gcpNegative - gcpi);
+  const negativeCase2 = qh * (gcpNegative + gcpi);
+  const negative = Math.min(negativeCase1, negativeCase2);
 
   return {
     positive: Math.round(positive * 10) / 10,

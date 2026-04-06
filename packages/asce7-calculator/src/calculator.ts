@@ -133,7 +133,7 @@ export function calculate(input: CalculatorInput): CalculatorOutput {
   // 9. Determine critical pressures (worst case across zones)
   const criticalPressure = {
     positive: Math.max(zone4.positive, zone5.positive),
-    negative: Math.min(zone4.negative, zone5.negative), // Most negative = most severe suction
+    negative: Math.max(Math.abs(zone4.negative), Math.abs(zone5.negative)),
   };
 
   // 10. Add advisory warnings
@@ -176,7 +176,7 @@ export function calculate(input: CalculatorInput): CalculatorOutput {
     zone5,
     criticalPressure,
     asce7Version: '7-22',
-    floridaBuildingCodeVersion: '2023',
+    floridaBuildingCodeVersion: '2023 FBC',
     calculatedAt: new Date().toISOString(),
     warnings,
   };

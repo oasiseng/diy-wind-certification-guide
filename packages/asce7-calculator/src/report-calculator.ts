@@ -283,7 +283,7 @@ export function generateReport(input: ProjectInput): ProjectReport {
       gcpPositive,
       gcpNegative,
       designPressurePositive: designPressures.positive,
-      designPressureNegative: Math.abs(designPressures.negative),
+      designPressureNegative: designPressures.negative,
     };
   });
 
@@ -300,15 +300,15 @@ export function generateReport(input: ProjectInput): ProjectReport {
     roofResults = {
       zone1: {
         positive: roofPressures.zone1.positive,
-        negative: Math.abs(roofPressures.zone1.negative),
+        negative: roofPressures.zone1.negative,
       },
       zone2: {
         positive: roofPressures.zone2.positive,
-        negative: Math.abs(roofPressures.zone2.negative),
+        negative: roofPressures.zone2.negative,
       },
       zone3: {
         positive: roofPressures.zone3.positive,
-        negative: Math.abs(roofPressures.zone3.negative),
+        negative: roofPressures.zone3.negative,
       },
     };
   }
