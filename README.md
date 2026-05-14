@@ -182,6 +182,18 @@ All 67 Florida counties are included with:
 - Building department contacts (for focus counties)
 - Geographic region classification
 
+ ## Residential Window/Door Worksheet Tool
+
+For simple Florida single-family window and door replacement projects, use the Oasis Residential Window Replacement Worksheet:
+
+- Looks up required pressures from embedded FBC Residential Table R301.2(2), Table R301.2(3), and Table R301.2(4) data
+- Produces a printable owner-builder worksheet
+- Compares required ASD pressures against Florida Product Approval design pressures
+- Intended only for eligible non-HVHZ, low-risk residential replacement work
+
+Start here: [Residential Window Replacement Worksheet](https://github.com/oasiseng/fl-window-worksheet)
+
+
 ## Important Disclaimers
 
 - This tool is for **educational purposes only** and does not constitute professional engineering
